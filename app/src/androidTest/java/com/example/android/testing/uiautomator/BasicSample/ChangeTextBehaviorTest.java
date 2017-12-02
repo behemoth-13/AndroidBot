@@ -52,6 +52,7 @@ public class ChangeTextBehaviorTest {
     private static final float MIN_REP = 0.76f;
 
     private UiDevice mDevice;
+    private Context context;
     private Queue<Client> clients = new LinkedList<>();
     private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss");
     private int myRep = 0;
@@ -113,7 +114,7 @@ public class ChangeTextBehaviorTest {
         writeToDisc();
 
         //while true
-        for (int i = 0; i < 1000 ; i++) {
+        for (int i = 0; i < 100000 ; i++) {
             String nextIP = getNextIP();
             waitObj("connection_new_target");
             mDevice.findObject(By.res(PACKAGE, "connection_new_target")).setText("");
@@ -176,7 +177,7 @@ public class ChangeTextBehaviorTest {
                 boolean isCollect = false;
                 boolean logIsDeleted = false;
                 boolean ipIsSaved = false;
-                int rests = Integer.parseInt(waitAndGetText("ct_trace"));
+                int rests = getRestSeconds();
                 while(rests > 8) {//отслеживание
                     if(!isCollect) {
                         while (!mDevice.hasObject(By.res(PACKAGE, "app_hardware")) &&
@@ -196,22 +197,17 @@ public class ChangeTextBehaviorTest {
                         int i1 = miners.size();
                         for (int i2 = 0; i2 < i1; i2++) {
                             miners.get(0).click();
-                            //sleep(1800);
-                            //mDevice.wait(Until.findObject(By.res(PACKAGE, "whois_done")), 5000);//закрыть вспывающее окно
-                            //sleep(600);
-                            //click("whois_done");
-
                             waitAndClick("whois_done");
 
                             waitObj("rth_btn");
                             miners = mDevice.findObjects(By.res(PACKAGE, "rth_btn"));
-                            rests = Integer.parseInt(waitAndGetText("ct_trace"));
+                            rests = getRestSeconds();
                             if (rests < 7) {
                                 break;
                             }
                         }
                         isCollect = true;
-                        rests = Integer.parseInt(waitAndGetText("ct_trace"));
+                        rests = getRestSeconds();
                     } else if (!logIsDeleted) {
                         waitAndClick("app_log");//Лог
                         mDevice.wait(Until.findObject(By.res(PACKAGE, "log_item_ip")), 1000);//ip в логах
@@ -226,13 +222,13 @@ public class ChangeTextBehaviorTest {
                             waitObj("btn_disconnect");//кнопка отключения не видна изза всплывающего окна
                             logs = mDevice.findObjects(By.res(PACKAGE, "log_item_ip"));//ip в логах
                             countLogs = logs.size();
-                            rests = Integer.parseInt(waitAndGetText("ct_trace"));
+                            rests = getRestSeconds();
                             if (rests < 7) {
                                 break;
                             }
                         }
                         logIsDeleted = true;
-                        rests = Integer.parseInt(waitAndGetText("ct_trace"));
+                        rests = getRestSeconds();
                     } else if (!ipIsSaved){
                         //for (int i2 = 0; i2 < 1; i2++) {
                             List<UiObject2> logs = mDevice.findObjects(By.res(PACKAGE, "log_item_ip"));//ip в логах
@@ -294,9 +290,15 @@ public class ChangeTextBehaviorTest {
         assertThat(mDevice, notNullValue());
     }
 
-//    private int parceRest(String s) {
-//
-//    }
+    private int getRestSeconds() {
+        String strRest = waitAndGetText("ct_trace");
+        if (strRest.contains(":")) {
+            return 60;
+        } else {
+            return Integer.parseInt(strRest);
+        }
+
+    }
 
     private boolean clientIsValid(String ip, String string) {
         Pattern p3 = Pattern.compile("Репутация:\\s.+\\n\\*\\*\\*\\*\\*\\*\\*\\*\\*\\*\\*");
@@ -307,26 +309,24 @@ public class ChangeTextBehaviorTest {
         }
         int rep = Integer.parseInt(string.substring(m3.start() + 11, m3.end() - 12));
 
-        if (rep < myRep*MIN_REP || rep > myRep*MAX_REP) {
-//            Client client = new Client();
-//            client.setIp(ip);
-//            client.setRep(rep);
-//            Pattern p = Pattern.compile("Target\\sname:.+'s\\sGateway");
-//            Matcher m = p.matcher(string);
-//            m.find();
-//            client.setOwner(string.substring(m.start() + 13, m.end() - 10));
-//            Pattern p2 = Pattern.compile("Risk:\\sLevel\\s.+\\s\\|\\s");
-//            Matcher m2 = p2.matcher(string);
-//            m2.find();
-//            client.setLevel(Integer.parseInt(string.substring(m2.start() + 12, m2.end() - 3)));
-//            client.setLastCrack(new Date());
-//            if (!clients.contains(client)) {
-//                clients.offer(client);
-//            }
-            //not valid
+        if (rep < myRep*MIN_REP || rep > myRep*MAX_REP) {//not valid
+            Client client = new Client();
+            client.setIp(ip);
+            client.setRep(rep);
+            Pattern p = Pattern.compile("Target\\sname:.+'s\\sGateway");
+            Matcher m = p.matcher(string);
+            m.find();
+            client.setOwner(string.substring(m.start() + 13, m.end() - 10));
+            Pattern p2 = Pattern.compile("Risk:\\sLevel\\s.+\\s\\|\\s");
+            Matcher m2 = p2.matcher(string);
+            m2.find();
+            client.setLevel(Integer.parseInt(string.substring(m2.start() + 12, m2.end() - 3)));
+            client.setLastCrack(new Date());
+            if (!clients.contains(client)) {
+                clients.offer(client);
+            }
             return false;
-        } else {
-            //valid
+        } else {//valid
             Client client = new Client();
             client.setIp(ip);
             client.setRep(rep);
@@ -379,29 +379,49 @@ public class ChangeTextBehaviorTest {
             String line;
             while ((line = br.readLine()) != null) {
                 String[] arr = line.split("\\sзх\\s");
-                if (arr.length == 1) {
-                    Client c = new Client();
-                    c.setIp(arr[0]);
-                    if (!clients.contains(c)) {
-                        clients.offer(c);
+                String ip = "";
+                int rep = 0;
+                String owner = "";
+                int level = 0;
+                Date lastCrack = null;
+                String guild = "";
+                for (int i = 0; i < arr.length; i++) {
+                    switch (i) {
+                        case 0: {
+                                    ip = arr[0];
+                                    break;
+                                }
+                        case 1: {
+                                    if (!arr[1].equals("")){
+                                        rep = Integer.parseInt(arr[1]);
+                                    }
+                                    break;
+                                }
+                        case 2: {
+                                    owner = arr[2];
+                                    break;
+                                }
+                        case 3: {
+                                    if (!arr[3].equals("")) {
+                                        level = Integer.parseInt(arr[3]);
+                                    }
+                                    break;
+                                }
+                        case 4: {
+                                    if (!arr[4].equals("")) {
+                                        lastCrack = dateFormat.parse(arr[4]);
+                                    }
+                                    break;
+                                }
+                        case 5: {
+                                    guild = arr[5];
+                                    break;
+                                }
                     }
-                } else if (arr.length == 5) {
-                    int rep = 0;
-                    if (!arr[1].equals("")){
-                        rep = Integer.parseInt(arr[1]);
-                    }
-                    int level = 0;
-                    if (!arr[3].equals("")) {
-                        level = Integer.parseInt(arr[3]);
-                    }
-                    Date date = null;
-                    if (!arr[4].equals("")) {
-                        date = dateFormat.parse(arr[4]);
-                    }
-                    Client c = new Client(arr[0], rep, arr[2], level, date);
-                    if (!clients.contains(c)) {
-                        clients.offer(c);
-                    }
+                }
+                Client client = new Client(ip, rep, owner, level, lastCrack, guild);
+                if (!clients.contains(client)) {
+                    clients.offer(client);
                 }
             }
             br.close();
@@ -499,12 +519,13 @@ public class ChangeTextBehaviorTest {
         //Constructors
         public Client() {
         }
-        public Client(String ip, int rep, String owner, int level, Date lastCrack) {
+        public Client(String ip, int rep, String owner, int level, Date lastCrack, String guild) {
             this.ip = ip;
             this.rep = rep;
             this.owner = owner;
             this.level = level;
             this.lastCrack = lastCrack;
+            this.guild = guild;
         }
 
         //Getters and Setters
@@ -538,6 +559,12 @@ public class ChangeTextBehaviorTest {
         public void setLastCrack(Date lastCrack) {
             this.lastCrack = lastCrack;
         }
+        public String getGuild() {
+            return guild;
+        }
+        public void setGuild(String guild) {
+            this.guild = guild;
+        }
 
         @Override
         public boolean equals(Object o) {
@@ -568,8 +595,8 @@ public class ChangeTextBehaviorTest {
     private String getLauncherPackageName() {
         final Intent intent = new Intent(Intent.ACTION_MAIN);
         intent.addCategory(Intent.CATEGORY_HOME);
-
-        PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
+        context = InstrumentationRegistry.getContext();
+        PackageManager pm = context.getPackageManager();
         ResolveInfo resolveInfo = pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
         return resolveInfo.activityInfo.packageName;
     }
