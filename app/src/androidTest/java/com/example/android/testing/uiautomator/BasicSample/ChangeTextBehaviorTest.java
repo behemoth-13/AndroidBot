@@ -38,18 +38,16 @@ import java.util.regex.Pattern;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.junit.Assert.assertThat;
 
-/**
- * Basic sample for unbundled UiAutomator.
- */
 @RunWith(AndroidJUnit4.class)
 @SdkSuppress(minSdkVersion = 18)
 public class ChangeTextBehaviorTest {
 
     private static final String PACKAGE = "net.okitoo.hackers";
+    private static final String MY_IP = "53.95.120.218";
     private static final int LAUNCH_TIMEOUT = 5000;
     private static final String PATH_SAVED_CLIENTS = "Download/MyBot/SavedClients.txt";
     private static final float MAX_REP = 1.6f;
-    private static final float MIN_REP = 0.76f;
+    private static final float MIN_REP = 0.75f;
 
     private UiDevice mDevice;
     private Context context;
@@ -115,10 +113,11 @@ public class ChangeTextBehaviorTest {
 
         //while true
         for (int i = 0; i < 100000 ; i++) {
-            String nextIP = getNextIP();
+            Client nextClient = getNextClient();
+
             waitObj("connection_new_target");
             mDevice.findObject(By.res(PACKAGE, "connection_new_target")).setText("");
-            mDevice.findObject(By.res(PACKAGE, "connection_new_target")).setText(nextIP);
+            mDevice.findObject(By.res(PACKAGE, "connection_new_target")).setText(nextClient.getIp());
             click("connections_add");
             sleep(1000);//try to delete
 
@@ -128,7 +127,7 @@ public class ChangeTextBehaviorTest {
             }
             if (mDevice.hasObject(By.res("android", "button1"))) {
                 if(mDevice.hasObject(By.res(PACKAGE, "app_input_prompt"))) {//капча
-                    Log.w("MyTag" , "app_input finds");
+                    Log.w("MyTag" , "captcha");
                     String s = waitAndGetText("app_input_prompt");
                     Pattern p = Pattern.compile("!:\\s[0-9]{3}");
                     Matcher m = p.matcher(s);
@@ -148,7 +147,7 @@ public class ChangeTextBehaviorTest {
                     break;
                 }
             }
-            if (clientIsValid(nextIP, s)) {
+            if (clientIsValid(nextClient, s)) {
                 waitAndClick("whois_add_to_list");//добавить ip в список подключений справа
                 sleep(1000);
                 waitAndClick("bounce_add");//добавить ip в список подключений слева
@@ -192,11 +191,10 @@ public class ChangeTextBehaviorTest {
                             break;
                         }
                         mDevice.wait(Until.findObject(By.res(PACKAGE, "rth_btn")), 10000);
-                       // waitAndClick("app_hardware");//оборудование !!!!ошибка: не возникает изображеине с 3мя кнопками
                         List<UiObject2> miners = mDevice.findObjects(By.res(PACKAGE, "rth_btn"));
                         int i1 = miners.size();
                         for (int i2 = 0; i2 < i1; i2++) {
-                            miners.get(0).click();
+                            miners.get(i2).click();
                             waitAndClick("whois_done");
 
                             waitObj("rth_btn");
@@ -269,8 +267,6 @@ public class ChangeTextBehaviorTest {
         }
         writeToDisc();
 
-
-
 //        try {
 //            File sdcard = Environment.getExternalStorageDirectory();
 //            File file = new File(sdcard, "Download/MyBot/Test.txt");
@@ -292,7 +288,7 @@ public class ChangeTextBehaviorTest {
 
     private int getRestSeconds() {
         String strRest = waitAndGetText("ct_trace");
-        if (strRest.contains(":")) {
+        if (strRest.contains(":") || strRest.contains(" не ")) {
             return 60;
         } else {
             return Integer.parseInt(strRest);
@@ -300,7 +296,7 @@ public class ChangeTextBehaviorTest {
 
     }
 
-    private boolean clientIsValid(String ip, String string) {
+    private boolean clientIsValid(Client client, String string) {
         Pattern p3 = Pattern.compile("Репутация:\\s.+\\n\\*\\*\\*\\*\\*\\*\\*\\*\\*\\*\\*");
         Matcher m3 = p3.matcher(string);
         m3.find();
@@ -310,58 +306,89 @@ public class ChangeTextBehaviorTest {
         int rep = Integer.parseInt(string.substring(m3.start() + 11, m3.end() - 12));
 
         if (rep < myRep*MIN_REP || rep > myRep*MAX_REP) {//not valid
-            Client client = new Client();
-            client.setIp(ip);
             client.setRep(rep);
-            Pattern p = Pattern.compile("Target\\sname:.+'s\\sGateway");
-            Matcher m = p.matcher(string);
-            m.find();
-            client.setOwner(string.substring(m.start() + 13, m.end() - 10));
-            Pattern p2 = Pattern.compile("Risk:\\sLevel\\s.+\\s\\|\\s");
-            Matcher m2 = p2.matcher(string);
-            m2.find();
-            client.setLevel(Integer.parseInt(string.substring(m2.start() + 12, m2.end() - 3)));
+
+            Pattern patternOwner = Pattern.compile("Target\\sname:.+'s\\sGateway");
+            Matcher matcherOwner = patternOwner.matcher(string);
+            matcherOwner.find();
+            client.setOwner(string.substring(matcherOwner.start() + 13, matcherOwner.end() - 10));
+
+            Pattern patternLevel = Pattern.compile("Risk:\\sLevel\\s.+\\s\\|\\s");
+            Matcher matcherLevel = patternLevel.matcher(string);
+            matcherLevel.find();
+            client.setLevel(Integer.parseInt(string.substring(matcherLevel.start() + 12, matcherLevel.end() - 3)));
+
             client.setLastCrack(new Date());
+
+            Pattern patternGuild = Pattern.compile("Гильдия:\\s.+\\nРепутация");
+            Matcher matcherGuild = patternGuild.matcher(string);
+            if (matcherGuild.find()) {
+                client.setGuild(string.substring(matcherGuild.start() + 9, matcherGuild.end() - 10));
+            }
             if (!clients.contains(client)) {
                 clients.offer(client);
             }
             return false;
         } else {//valid
-            Client client = new Client();
-            client.setIp(ip);
             client.setRep(rep);
-            Pattern p = Pattern.compile("Target\\sname:.+'s\\sGateway");
-            Matcher m = p.matcher(string);
-            m.find();
-            client.setOwner(string.substring(m.start() + 13, m.end() - 10));
-            Pattern p2 = Pattern.compile("Risk:\\sLevel\\s.+\\s\\|\\s");
-            Matcher m2 = p2.matcher(string);
-            m2.find();
-            client.setLevel(Integer.parseInt(string.substring(m2.start() + 12, m2.end() - 3)));
+
+            Pattern patternOwner = Pattern.compile("Target\\sname:.+'s\\sGateway");
+            Matcher matcherOwner = patternOwner.matcher(string);
+            matcherOwner.find();
+            client.setOwner(string.substring(matcherOwner.start() + 13, matcherOwner.end() - 10));
+
+            Pattern patternLevel = Pattern.compile("Risk:\\sLevel\\s.+\\s\\|\\s");
+            Matcher matcherLevel = patternLevel.matcher(string);
+            matcherLevel.find();
+            client.setLevel(Integer.parseInt(string.substring(matcherLevel.start() + 12, matcherLevel.end() - 3)));
+
             client.setLastCrack(new Date());
+
+            Pattern patternGuild = Pattern.compile("Гильдия:\\s.+\\nРепутация");
+            Matcher matcherGuild = patternGuild.matcher(string);
+            if (matcherGuild.find()) {
+                client.setGuild(string.substring(matcherGuild.start() + 9, matcherGuild.end() - 10));
+            }
+
             if (!clients.contains(client)) {
                 clients.offer(client);
             }
+
             writeToDisc();
             return true;
         }
     }
 
-    private String getNextIP() {
+    private Client getNextClient() {
+
+        collectMissions();//temply
+
+
         Client nextClient = clients.poll();
         Date lastCrack = nextClient.getLastCrack();
+        int countTries = 0;
         while (lastCrack != null) {
+            if (countTries > clients.size()) {
+                collectMissions();
+            }
             long afterCrack = new Date().getTime() - lastCrack.getTime();
-            if (afterCrack > (1000*60*60 + 20000)) {
-                return nextClient.getIp();
+            if (afterCrack > (1000*60*60 + 20000)) {//если был взломан более часа назад
+                return nextClient;
             } else {
                 clients.offer(nextClient);
-                sleep(1000);
+                sleep(200);
                 nextClient = clients.poll();
+                countTries++;
                 lastCrack = nextClient.getLastCrack();
             }
         }
-        return nextClient.getIp();
+        return nextClient;
+    }
+
+    private void collectMissions() {
+        waitAndClick("img_missions");
+        waitAndClick("btn_mission_public");
+
     }
 
     private void sleep(long millis) {
@@ -385,6 +412,7 @@ public class ChangeTextBehaviorTest {
                 int level = 0;
                 Date lastCrack = null;
                 String guild = "";
+                String action = "";
                 for (int i = 0; i < arr.length; i++) {
                     switch (i) {
                         case 0: {
@@ -417,9 +445,14 @@ public class ChangeTextBehaviorTest {
                                     guild = arr[5];
                                     break;
                                 }
+                        case 6: {
+                                    action = arr[6];
+                                    break;
+                                }
+
                     }
                 }
-                Client client = new Client(ip, rep, owner, level, lastCrack, guild);
+                Client client = new Client(ip, rep, owner, level, lastCrack, guild, action);
                 if (!clients.contains(client)) {
                     clients.offer(client);
                 }
@@ -440,7 +473,7 @@ public class ChangeTextBehaviorTest {
     private void saveIP(String ip) {
         Client c = new Client();
         c.setIp(ip);
-        if (!ip.equals("Bounced IP") && !clients.contains(c) && !ip.equals("53.95.120.218")) {
+        if (!ip.equals("Bounced IP") && !clients.contains(c) && !ip.equals(MY_IP)) {
             if (ip.endsWith(" [Уже взломан]")) {
                 ip = ip.substring(0, ip.length() - 14);
                 c.setIp(ip);
@@ -475,7 +508,16 @@ public class ChangeTextBehaviorTest {
                 if (client.getLastCrack() != null) {
                     lastCrack = dateFormat.format(client.getLastCrack());
                 }
-                bw.write(client.getIp() + " зх " + rep + " зх " + owner + " зх " + level + " зх " + lastCrack + "\n");
+                String guild = "";
+                if (client.getGuild() != null) {
+                    guild = client.getGuild();
+                }
+                String action = "";
+                if (client.getAction() != null) {
+                    action = client.getAction();
+                }
+                bw.write(client.getIp() + " зх " + rep + " зх " + owner + " зх " + level + " зх " +
+                        lastCrack + " зх " + guild + " зх " + action +"\n");
             }
             bw.close();
         } catch (IOException e) {
@@ -515,17 +557,27 @@ public class ChangeTextBehaviorTest {
         private int level;
         private Date lastCrack;
         private String guild;
+        private String action;
+
+        /**
+         * action:
+         * i - do you know ip
+         * d - delete log from
+         * c - collect from
+         * empty - default action
+         */
 
         //Constructors
         public Client() {
         }
-        public Client(String ip, int rep, String owner, int level, Date lastCrack, String guild) {
+        public Client(String ip, int rep, String owner, int level, Date lastCrack, String guild, String action) {
             this.ip = ip;
             this.rep = rep;
             this.owner = owner;
             this.level = level;
             this.lastCrack = lastCrack;
             this.guild = guild;
+            this.action = action;
         }
 
         //Getters and Setters
@@ -565,6 +617,12 @@ public class ChangeTextBehaviorTest {
         public void setGuild(String guild) {
             this.guild = guild;
         }
+        public String getAction() {
+            return action;
+        }
+        public void setAction(String action) {
+            this.action = action;
+        }
 
         @Override
         public boolean equals(Object o) {
@@ -584,11 +642,13 @@ public class ChangeTextBehaviorTest {
 
         @Override
         public String toString() {
-            return ip +" зх " +
-                    rep +" зх " +
-                    owner +" зх " +
-                    level +" зх " +
-                    lastCrack;
+            return ip + " зх " +
+                    rep + " зх " +
+                    owner + " зх " +
+                    level + " зх " +
+                    lastCrack + " зх " +
+                    guild + " зх " +
+                    action;
         }
     }
 
