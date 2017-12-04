@@ -32,6 +32,7 @@ import java.io.PrintWriter;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -447,6 +448,7 @@ public class ChangeTextBehaviorTest {
         while (lastCrack != null) {
             if (countTries > clients.size()) {
                 collectMissions();
+                writeToDisc();
                 countTries = 0;
             }
             long afterCrack = new Date().getTime() - lastCrack.getTime();
@@ -465,14 +467,12 @@ public class ChangeTextBehaviorTest {
     }
 
     private void collectMissions() {
-        mDevice.swipe(1000, 140, 1000, 1000, 20);
-        mDevice.swipe(1000, 140, 1000, 1000, 20);
-        mDevice.swipe(1000, 140, 1000, 1000, 20);
-        sleep(6000);
         Set<String> set = new HashSet<>();
         waitAndClick("img_missions");//задания
         waitAndClick("btn_mission_public");//кнопка поиск заданий
         waitObj("public_missions_view");
+        mDevice.swipe(1000, 240, 1000, 1000, 8);
+        sleep(6000);
         for (int i1 = 0; i1 < 3; i1++) {
             waitObj("row");
             List<UiObject2> rows = mDevice.findObjects(By.res(PACKAGE, "row"));
@@ -542,14 +542,12 @@ public class ChangeTextBehaviorTest {
     }
 
     private void parseMissions() {
-        mDevice.swipe(1000, 140, 1000, 1000, 20);
-        mDevice.swipe(1000, 140, 1000, 1000, 20);
-        mDevice.swipe(1000, 140, 1000, 1000, 20);
-        sleep(6000);
-        Set<String> set = new HashSet<>();
+        List<String> set = new ArrayList<>();
         waitAndClick("btn_mission_my");//кнопка Активные задания
         waitObj("row");
-        for (int i1 = 0; i1 < 3; i1++) {
+        mDevice.swipe(1000, 240, 1000, 1000, 8);
+        sleep(6000);
+        for (int i1 = 0; i1 < 2; i1++) {
             List<UiObject2> rows = mDevice.findObjects(By.res(PACKAGE, "row"));
             int countRows = rows.size();
             for (int i = 0; i < countRows; i++) {
@@ -593,6 +591,7 @@ public class ChangeTextBehaviorTest {
                 }
             }
             mDevice.swipe(1000, 1000, 1000, 140, 100);
+            rows = null;
             sleep(6000);
         }
     }
