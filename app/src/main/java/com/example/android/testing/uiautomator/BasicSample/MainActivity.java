@@ -21,6 +21,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Environment;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.widget.EditText;
 import android.widget.TextView;
 
@@ -51,6 +52,9 @@ public class MainActivity extends Activity implements View.OnClickListener {
         findViewById(R.id.activityChangeTextBtn).setOnClickListener(this);
 
         mTextView = (TextView) findViewById(R.id.textToBeChanged);
+        ViewConfiguration viewConfiguration = ViewConfiguration.get(getApplicationContext());
+        int longPressTimeout = ViewConfiguration.getLongPressTimeout();
+        mTextView.setText("" + longPressTimeout);
         mEditText = (EditText) findViewById(R.id.editTextUserInput);
     }
 

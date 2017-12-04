@@ -16,8 +16,11 @@ import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
+import android.support.test.uiautomator.UiScrollable;
+import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
 import android.util.Log;
+import android.widget.Toast;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -28,10 +31,13 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -46,7 +52,7 @@ public class ChangeTextBehaviorTest {
     private static final String MY_IP = "53.95.120.218";
     private static final int LAUNCH_TIMEOUT = 5000;
     private static final String PATH_SAVED_CLIENTS = "Download/MyBot/SavedClients.txt";
-    private static final float MAX_REP = 1.6f;
+    private static final float MAX_REP = 1.5f;
     private static final float MIN_REP = 0.75f;
 
     private UiDevice mDevice;
@@ -171,64 +177,53 @@ public class ChangeTextBehaviorTest {
                 }
                 waitObj("software_i_icon");
                 sleep(200);
-                mDevice.findObjects(By.res(PACKAGE, "software_i_icon")).get(1).click();//взломать 2
+                mDevice.findObjects(By.res(PACKAGE, "software_i_icon")).get(1).click();//взломать
                 sleep(1000);
                 boolean isCollect = false;
                 boolean logIsDeleted = false;
                 boolean ipIsSaved = false;
                 int rests = getRestSeconds();
                 while(rests > 8) {//отслеживание
-                    if(!isCollect) {
-                        while (!mDevice.hasObject(By.res(PACKAGE, "app_hardware")) &&
-                                mDevice.hasObject(By.res(PACKAGE, "ct_login_name"))) {
-                            sleep(100);
-                        }
-                        try {
-                            mDevice.wait(Until.findObject(By.res(PACKAGE, "app_hardware")), 1000);
-                            click("app_hardware");
-                        } catch (NullPointerException e) {
-                            Log.w("MyTag", "NPE");
-                            break;
-                        }
-                        mDevice.wait(Until.findObject(By.res(PACKAGE, "rth_btn")), 10000);
-                        List<UiObject2> miners = mDevice.findObjects(By.res(PACKAGE, "rth_btn"));
-                        int i1 = miners.size();
-                        for (int i2 = 0; i2 < i1; i2++) {
-                            miners.get(i2).click();
-                            waitAndClick("whois_done");
-
-                            waitObj("rth_btn");
-                            miners = mDevice.findObjects(By.res(PACKAGE, "rth_btn"));
-                            rests = getRestSeconds();
-                            if (rests < 7) {
+                    if ((nextClient.getAction() != null) && (nextClient.getAction().equals(Client.DELETE))) {//delete mission
+                        if (!logIsDeleted) {
+                            while (!mDevice.hasObject(By.res(PACKAGE, "app_log")) &&
+                                    mDevice.hasObject(By.res(PACKAGE, "ct_login_name"))) {
+                                sleep(100);
+                            }
+                            try {
+                                mDevice.wait(Until.findObject(By.res(PACKAGE, "app_log")), 1000);
+                                click("app_log");//Лог
+                            } catch (NullPointerException e) {
+                                Log.w("MyTag", "NPE");
                                 break;
                             }
-                        }
-                        isCollect = true;
-                        rests = getRestSeconds();
-                    } else if (!logIsDeleted) {
-                        waitAndClick("app_log");//Лог
-                        mDevice.wait(Until.findObject(By.res(PACKAGE, "log_item_ip")), 1000);//ip в логах
-                        List<UiObject2> logs = mDevice.findObjects(By.res(PACKAGE, "log_item_ip"));//ip в логах
-                        int countLogs = logs.size();
-                        for (int i1 = 0; i1 < countLogs; i1++) {
-                            UiObject2 log = logs.get(i1);
-                            if (log.getText().equals("53.95.120.218")) {
-                                log.getParent().findObject(By.res(PACKAGE, "log_item_del")).click(); //удалить лог
-                                sleep(1000);
+                            mDevice.wait(Until.findObject(By.res(PACKAGE, "log_item_ip")), 1000);//ip в логах
+                            List<UiObject2> logs = mDevice.findObjects(By.res(PACKAGE, "log_item_ip"));//ip в логах
+                            int countLogs = logs.size();
+                            boolean missionComplete = false;
+                            for (int i1 = 0; i1 < countLogs; i1++) {
+                                UiObject2 log = logs.get(i1);
+                                if (log.getText().equals(MY_IP)) {//my ip
+                                    log.getParent().findObject(By.res(PACKAGE, "log_item_del")).click(); //удалить лог
+                                    sleep(1000);
+                                } else if (!missionComplete) {
+                                    log.getParent().findObject(By.res(PACKAGE, "log_item_del")).click(); //удалить лог
+                                    missionComplete = true;
+                                    nextClient.setAction(Client.NOTHING);
+                                    sleep(1000);
+                                }
+                                waitObj("btn_disconnect");//кнопка отключения не видна изза всплывающего окна
+                                logs = mDevice.findObjects(By.res(PACKAGE, "log_item_ip"));//ip в логах
+                                countLogs = logs.size();
+                                rests = getRestSeconds();
+                                if (rests < 7) {
+                                    break;
+                                }
                             }
-                            waitObj("btn_disconnect");//кнопка отключения не видна изза всплывающего окна
-                            logs = mDevice.findObjects(By.res(PACKAGE, "log_item_ip"));//ip в логах
-                            countLogs = logs.size();
+                            logIsDeleted = true;
                             rests = getRestSeconds();
-                            if (rests < 7) {
-                                break;
-                            }
-                        }
-                        logIsDeleted = true;
-                        rests = getRestSeconds();
-                    } else if (!ipIsSaved){
-                        //for (int i2 = 0; i2 < 1; i2++) {
+                        } else if (!ipIsSaved){
+                            //for (int i2 = 0; i2 < 1; i2++) {
                             List<UiObject2> logs = mDevice.findObjects(By.res(PACKAGE, "log_item_ip"));//ip в логах
 //                            UiObject2 lastLog = null;
                             for (UiObject2 log : logs) {
@@ -240,10 +235,96 @@ public class ChangeTextBehaviorTest {
 //                            } else {
 //                                break;
 //                            }
-                        //}
-                        ipIsSaved = true;
-                    } else {
-                        break;
+                            //}
+                            ipIsSaved = true;
+                        } else {
+                            break;
+                        }
+                    } else {//mission collect or no mission
+                        if(!isCollect) {
+                            while (!mDevice.hasObject(By.res(PACKAGE, "app_hardware")) &&
+                                    mDevice.hasObject(By.res(PACKAGE, "ct_login_name"))) {
+                                sleep(100);
+                            }
+                            try {
+                                mDevice.wait(Until.findObject(By.res(PACKAGE, "app_hardware")), 1000);
+                                click("app_hardware");
+                            } catch (NullPointerException e) {
+                                Log.w("MyTag", "NPE");
+                                break;
+                            }
+                            mDevice.wait(Until.findObject(By.res(PACKAGE, "rth_btn")), 10000);
+                            List<UiObject2> miners = mDevice.findObjects(By.res(PACKAGE, "rth_btn"));
+                            int i1 = miners.size();
+                            if ((nextClient.getAction() != null) && (nextClient.getAction().equals(Client.COLLECT))) {//mission COLLECT
+                                int hackCoinsBefore = getMyMoney();
+                                for (int i2 = 0; i2 < i1; i2++) {
+                                    miners.get(i2).click();
+                                    waitAndClick("whois_done");
+                                    waitObj("rth_btn");
+                                    int diff = getMyMoney() - hackCoinsBefore;
+                                    if (diff > 0) {
+                                        nextClient.setAction(Client.NOTHING);
+                                    }
+                                    miners = mDevice.findObjects(By.res(PACKAGE, "rth_btn"));
+                                    rests = getRestSeconds();
+                                    if (rests < 7) {
+                                        break;
+                                    }
+                                }
+                            } else {//no mission
+                                for (int i2 = 0; i2 < i1; i2++) {
+                                    miners.get(i2).click();
+                                    waitAndClick("whois_done");
+                                    waitObj("rth_btn");
+                                    miners = mDevice.findObjects(By.res(PACKAGE, "rth_btn"));
+                                    rests = getRestSeconds();
+                                    if (rests < 7) {
+                                        break;
+                                    }
+                                }
+                            }
+                            isCollect = true;
+                            rests = getRestSeconds();
+                        } else if (!logIsDeleted) {
+                            waitAndClick("app_log");//Лог
+                            mDevice.wait(Until.findObject(By.res(PACKAGE, "log_item_ip")), 1000);//ip в логах
+                            List<UiObject2> logs = mDevice.findObjects(By.res(PACKAGE, "log_item_ip"));//ip в логах
+                            int countLogs = logs.size();
+                            for (int i1 = 0; i1 < countLogs; i1++) {
+                                UiObject2 log = logs.get(i1);
+                                if (log.getText().equals("53.95.120.218")) {
+                                    log.getParent().findObject(By.res(PACKAGE, "log_item_del")).click(); //удалить лог
+                                    sleep(1000);
+                                }
+                                waitObj("btn_disconnect");//кнопка отключения не видна изза всплывающего окна
+                                logs = mDevice.findObjects(By.res(PACKAGE, "log_item_ip"));//ip в логах
+                                countLogs = logs.size();
+                                rests = getRestSeconds();
+                                if (rests < 7) {
+                                    break;
+                                }
+                            }
+                            logIsDeleted = true;
+                            rests = getRestSeconds();
+                        } else if (!ipIsSaved){
+                            //for (int i2 = 0; i2 < 1; i2++) {
+                            List<UiObject2> logs = mDevice.findObjects(By.res(PACKAGE, "log_item_ip"));//ip в логах
+//                            UiObject2 lastLog = null;
+                            for (UiObject2 log : logs) {
+                                saveIP(log.getText());
+                                //lastLog = log;
+                            }
+//                            if (lastLog != null) {
+//                                lastLog.swipe(Direction.UP, 1.0f, 2);
+//                            } else {
+//                                break;
+//                            }
+                            //}
+                            ipIsSaved = true;
+                        } else {
+                            break;
+                        }
                     }
                 }
                 waitAndClick("btn_disconnect");//отключение
@@ -305,7 +386,7 @@ public class ChangeTextBehaviorTest {
         }
         int rep = Integer.parseInt(string.substring(m3.start() + 11, m3.end() - 12));
 
-        if (rep < myRep*MIN_REP || rep > myRep*MAX_REP) {//not valid
+        if ((rep < myRep*MIN_REP || rep > myRep*MAX_REP) && (client.getAction() == null || client.getAction().equals(""))) {//not valid
             client.setRep(rep);
 
             Pattern patternOwner = Pattern.compile("Target\\sname:.+'s\\sGateway");
@@ -360,23 +441,21 @@ public class ChangeTextBehaviorTest {
     }
 
     private Client getNextClient() {
-
-        collectMissions();//temply
-
-
         Client nextClient = clients.poll();
         Date lastCrack = nextClient.getLastCrack();
         int countTries = 0;
         while (lastCrack != null) {
             if (countTries > clients.size()) {
                 collectMissions();
+                countTries = 0;
             }
             long afterCrack = new Date().getTime() - lastCrack.getTime();
-            if (afterCrack > (1000*60*60 + 20000)) {//если был взломан более часа назад
+            int rep = nextClient.getRep();
+            if (rep > myRep*MIN_REP && rep < myRep*MAX_REP && (afterCrack > (1000*60*60 + 20000)) ) {//если был взломан более часа назад
                 return nextClient;
             } else {
                 clients.offer(nextClient);
-                sleep(200);
+                sleep(100);
                 nextClient = clients.poll();
                 countTries++;
                 lastCrack = nextClient.getLastCrack();
@@ -386,9 +465,164 @@ public class ChangeTextBehaviorTest {
     }
 
     private void collectMissions() {
-        waitAndClick("img_missions");
-        waitAndClick("btn_mission_public");
+        mDevice.swipe(1000, 140, 1000, 1000, 20);
+        mDevice.swipe(1000, 140, 1000, 1000, 20);
+        mDevice.swipe(1000, 140, 1000, 1000, 20);
+        sleep(6000);
+        Set<String> set = new HashSet<>();
+        waitAndClick("img_missions");//задания
+        waitAndClick("btn_mission_public");//кнопка поиск заданий
+        waitObj("public_missions_view");
+        for (int i1 = 0; i1 < 3; i1++) {
+            waitObj("row");
+            List<UiObject2> rows = mDevice.findObjects(By.res(PACKAGE, "row"));
+            int countRows = rows.size();
+            for (int i = 0; i < countRows; i++) {
+                waitObj("row");
+                UiObject2 row = rows.get(i);
+                Log.w("MyTag" , "view " + i1 + ". row" + i);
+                if (row.hasObject(By.res(PACKAGE, "mission_i__title"))) {
+                    String missionTitle = row.findObject(By.res(PACKAGE, "mission_i__title")).getText();//заголовок задания
+                    if (!set.contains(missionTitle)) {
+                        if (missionTitle.startsWith("Collect from") || missionTitle.startsWith("Delete logs")) {
+                            set.add(missionTitle);
+                            row.click();
+                            waitObj("mission_det_description");//обработка всплывающего окна
+                            mDevice.swipe(1000, 800, 1000, 600, 20);
+                            waitObj("mission_det_target_rep");
+                            String strRep = mDevice.findObject(By.res(PACKAGE, "mission_det_target_rep")).getText();
+                            strRep = strRep.substring(0, strRep.indexOf(' '));
+                            int rep = Integer.parseInt(strRep);
+                            if (rep > myRep*MAX_REP){//not valid
+                                click("btn_done");
+                            } else {//valid
+                                click("btn_start");
+                                while (!mDevice.hasObject(By.res(PACKAGE, "btn_mission_public")) && !mDevice.hasObject(By.res("android", "button1"))) {
+                                    sleep(500);
+                                }
+                                if (mDevice.hasObject(By.res(PACKAGE, "btn_mission_public"))) {
+                                    click("btn_mission_public");
+                                } else if (mDevice.hasObject(By.res("android", "button1"))){
+                                    if (mDevice.hasObject(By.res(PACKAGE, "app_input_prompt"))) {//капча
+                                        Log.w("MyTag" , "captcha");
+                                        String s = waitAndGetText("app_input_prompt");
+                                        Pattern p = Pattern.compile("!:\\s[0-9]{3}");
+                                        Matcher m = p.matcher(s);
+                                        m.find();
+                                        mDevice.findObject(By.res(PACKAGE, "app_input_data")).setText(s.substring(m.start() + 3, m.end()));//ввод капчи
+                                    } else {
+                                        Log.w("MyTag", "4 hour expected");
+                                    }
+                                    mDevice.findObject(By.res("android", "button1")).click();
+                                }
+                            }
+                        } else if (missionTitle.startsWith("Do you have IP")) {
+                            set.add(missionTitle);
+//                            String owner = missionTitle.substring(18);
+//                            for (Client c : clients) {
+//                                if ((c.getOwner() != null) && (c.getOwner().equals(owner))) {//если есть совпадение
+//                                    row.click();
+//                                    click("btn_start");
+//                                    waitAndClick("btn_mission_public");
+//                                    c.setAction(Client.DO_YOU_HAVE);
+//                                }
+//                            }
+                        } else {//unknown mission
+                            set.add(missionTitle);
+                            Log.w("MyTag", "mission: " + missionTitle);
+                        }
+                    }
+                }
+            }
+            mDevice.swipe(1000, 1000, 1000, 140, 100);
+            sleep(6000);
+        }
+        parseMissions();
+        waitAndClick("img_connection");
+    }
 
+    private void parseMissions() {
+        mDevice.swipe(1000, 140, 1000, 1000, 20);
+        mDevice.swipe(1000, 140, 1000, 1000, 20);
+        mDevice.swipe(1000, 140, 1000, 1000, 20);
+        sleep(6000);
+        Set<String> set = new HashSet<>();
+        waitAndClick("btn_mission_my");//кнопка Активные задания
+        waitObj("row");
+        for (int i1 = 0; i1 < 3; i1++) {
+            List<UiObject2> rows = mDevice.findObjects(By.res(PACKAGE, "row"));
+            int countRows = rows.size();
+            for (int i = 0; i < countRows; i++) {
+                waitObj("row");
+                UiObject2 row = rows.get(i);
+                if (row.hasObject(By.res(PACKAGE, "mission_i__title"))) {
+                    String missionTitle = row.findObject(By.res(PACKAGE, "mission_i__title")).getText();//заголовок задания
+                    if (!set.contains(missionTitle)) {
+                        if (missionTitle.startsWith("Collect from") || missionTitle.startsWith("Delete logs")) {
+                            set.add(missionTitle);
+                            row.click();
+                            waitObj("mission_det_description");//обработка всплывающего окна
+                            mDevice.swipe(1000, 800, 1000, 600, 20);
+                            String ip = waitAndGetText("mission_det_target");
+                            Client client = new Client();
+                            client.setIp(ip);
+                            String action = "";
+                            if (missionTitle.startsWith("Collect from")) {
+                                action = Client.COLLECT;
+                            } else if (missionTitle.startsWith("Delete logs")) {
+                                action = Client.DELETE;
+                            }
+                            if (!clients.contains(client)) {
+                                client.setAction(action);
+                                clients.offer(client);
+                            } else {
+                                for (Client c : clients) {
+                                    if (c.getIp().equals(ip)) {
+                                        c.setAction(action);
+                                    }
+                                }
+                            }
+                            waitAndClick("btn_done");
+                        } else if (missionTitle.startsWith("Do you have IP")) {
+                            set.add(missionTitle);
+                        } else {//unknown mission
+                            set.add(missionTitle);
+                            Log.w("MyTag", "mission: " + missionTitle);
+                        }
+                    }
+                }
+            }
+            mDevice.swipe(1000, 1000, 1000, 140, 100);
+            sleep(6000);
+        }
+    }
+//        UiObject2 ui1 = mDevice.findObject(By.res(PACKAGE, "btn_mission_public")).getParent().getParent();
+//        Log.w("MyTag", "hey2");
+//        List<UiObject2> rows1 = ui1.getChildren();
+//        for (UiObject2 ui : rows1) {
+//
+//            List<UiObject2> list2 = ui.getChildren();
+//            Log.w("MyTag", "hey");
+//            for (UiObject2 ui2 : list2) {
+//                List<UiObject2> list3 = ui2.getChildren();
+//                Log.w("MyTag", "hey");
+//                for (UiObject2 ui3 : list3) {
+//                    List<UiObject2> list4 = ui3.getChildren();
+//                    Log.w("MyTag", "hey");
+//                    for (UiObject2 ui4 : list4) {
+//                        List<UiObject2> list5 = ui4.getChildren();
+//                        Log.w("MyTag", "hey");
+//
+//                    }
+//                }
+//            }
+//        }
+//        Log.w("MyTag", "hey");
+
+    private int getMyMoney() {
+        String hc = mDevice.findObject(By.res(PACKAGE, "stat_cash")).getText();
+        hc = hc.replaceAll("\\s", "").replaceAll("HC", "");
+        return Integer.parseInt(hc);
     }
 
     private void sleep(long millis) {
@@ -551,6 +785,11 @@ public class ChangeTextBehaviorTest {
     }
 
     private class Client {
+        public static final String NOTHING = "";
+        public static final String COLLECT = "c";
+        public static final String DELETE = "d";
+        public static final String DO_YOU_HAVE = "i";
+
         private String ip;
         private int rep;
         private String owner;
