@@ -84,16 +84,7 @@ public class ChangeTextBehaviorTest {
 
     @Test
     public void runBot() throws UiObjectNotFoundException {
-//        waitAndClick("img_hardware");
-//        mDevice.wait(Until.findObject(By.res(PACKAGE, "lv_hardware")), 30000);
-//        UiScrollable hardList = new UiScrollable(
-//                new UiSelector()
-//                        .resourceId("net.okitoo.hackers:id/lv_hardware")
-//                        .scrollable(true)
-//        );
-//        hardList.setAsVerticalList();
-//        hardList.scrollToEnd(3);
-//        waitAndClick("btn_func");                           //collect
+
         initSavedIP();
         mDevice.wait(Until.findObject(By.res(PACKAGE, "whois_done")), 120000);
         mDevice.findObject(By.res(PACKAGE, "whois_done")).click();
@@ -124,7 +115,7 @@ public class ChangeTextBehaviorTest {
 
             waitObj("connection_new_target");
             mDevice.findObject(By.res(PACKAGE, "connection_new_target")).setText("");
-            mDevice.findObject(By.res(PACKAGE, "connection_new_target")).setText(nextClient.getIp());
+            mDevice.findObject(By.res(PACKAGE, "connection_new_target")).setText(nextClient.getIp());//вводим ip
             click("connections_add");
             sleep(1000);//try to delete
 
@@ -142,7 +133,9 @@ public class ChangeTextBehaviorTest {
                     mDevice.findObject(By.res(PACKAGE, "app_input_data")).setText(s.substring(m.start() + 3, m.end()));//ввод капчи
                     mDevice.findObject(By.res("android", "button1")).click();
                     waitAndClick("whois_done");
-                    continue;
+                    click("connections_add");
+                    sleep(1000);//try to delete
+                    //continue;
                 }
             }
 
@@ -206,9 +199,11 @@ public class ChangeTextBehaviorTest {
                                 UiObject2 log = logs.get(i1);
                                 if (log.getText().equals(MY_IP)) {//my ip
                                     log.getParent().findObject(By.res(PACKAGE, "log_item_del")).click(); //удалить лог
+                                    i1--;
                                     sleep(1000);
                                 } else if (!missionComplete) {
                                     log.getParent().findObject(By.res(PACKAGE, "log_item_del")).click(); //удалить лог
+                                    i1--;
                                     missionComplete = true;
                                     nextClient.setAction(Client.NOTHING);
                                     sleep(1000);
@@ -296,6 +291,7 @@ public class ChangeTextBehaviorTest {
                                 UiObject2 log = logs.get(i1);
                                 if (log.getText().equals("53.95.120.218")) {
                                     log.getParent().findObject(By.res(PACKAGE, "log_item_del")).click(); //удалить лог
+                                    i1--;
                                     sleep(1000);
                                 }
                                 waitObj("btn_disconnect");//кнопка отключения не видна изза всплывающего окна
@@ -349,18 +345,7 @@ public class ChangeTextBehaviorTest {
         }
         writeToDisc();
 
-//        try {
-//            File sdcard = Environment.getExternalStorageDirectory();
-//            File file = new File(sdcard, "Download/MyBot/Test.txt");
-//            file.createNewFile();
-//            PrintWriter writer = new PrintWriter(file);
-//            writer.print("");
-//            writer.close();
-//            BufferedWriter bw = new BufferedWriter(new FileWriter(file, true));
-//            bw.write(s);
-//            bw.close();
-//        } catch (IOException e) {
-//        }
+
 
 
         //сейчас в дисп подключ
@@ -446,40 +431,46 @@ public class ChangeTextBehaviorTest {
         Date lastCrack = nextClient.getLastCrack();
         int countTries = 0;
         while (lastCrack != null) {
-            if (countTries > clients.size()) {
-                collectMissions();
-                writeToDisc();
-                countTries = 0;
-            }
+//            if (countTries > clients.size()) {
+//                collectMissions();
+//                writeToDisc();
+//                countTries = 0;
+//            }
             long afterCrack = new Date().getTime() - lastCrack.getTime();
             int rep = nextClient.getRep();
-            if (rep > myRep*MIN_REP && rep < myRep*MAX_REP && (afterCrack > (1000*60*60 + 20000)) ) {//если был взломан более часа назад
-                return nextClient;
-            } else {
-                clients.offer(nextClient);
-                sleep(100);
-                nextClient = clients.poll();
-                countTries++;
-                lastCrack = nextClient.getLastCrack();
+            if (afterCrack > (1000*60*60 + 20000)) {//если был взломан более часа назад
+                if (nextClient.getAction() != null && !nextClient.getAction().equals("")) {
+                    return nextClient;
+                }
+                if (rep > myRep*MIN_REP && rep < myRep*MAX_REP) {
+                    return nextClient;
+                }
             }
+            clients.offer(nextClient);
+            sleep(100);
+            nextClient = clients.poll();
+            countTries++;
+            lastCrack = nextClient.getLastCrack();
         }
         return nextClient;
     }
 
     private void collectMissions() {
-        Set<String> set = new HashSet<>();
+        List<String> set = new ArrayList<>();
         waitAndClick("img_missions");//задания
         waitAndClick("btn_mission_public");//кнопка поиск заданий
         waitObj("public_missions_view");
         mDevice.swipe(1000, 240, 1000, 1000, 8);
         sleep(6000);
+        List<UiObject2> rows;
+        UiObject2 row;
         for (int i1 = 0; i1 < 3; i1++) {
             waitObj("row");
-            List<UiObject2> rows = mDevice.findObjects(By.res(PACKAGE, "row"));
+            rows = mDevice.findObjects(By.res(PACKAGE, "row"));
             int countRows = rows.size();
             for (int i = 0; i < countRows; i++) {
                 waitObj("row");
-                UiObject2 row = rows.get(i);
+                row = rows.get(i);
                 Log.w("MyTag" , "view " + i1 + ". row" + i);
                 if (row.hasObject(By.res(PACKAGE, "mission_i__title"))) {
                     String missionTitle = row.findObject(By.res(PACKAGE, "mission_i__title")).getText();//заголовок задания
@@ -498,7 +489,7 @@ public class ChangeTextBehaviorTest {
                             } else {//valid
                                 click("btn_start");
                                 while (!mDevice.hasObject(By.res(PACKAGE, "btn_mission_public")) && !mDevice.hasObject(By.res("android", "button1"))) {
-                                    sleep(500);
+                                    sleep(800);
                                 }
                                 if (mDevice.hasObject(By.res(PACKAGE, "btn_mission_public"))) {
                                     click("btn_mission_public");
@@ -547,12 +538,14 @@ public class ChangeTextBehaviorTest {
         waitObj("row");
         mDevice.swipe(1000, 240, 1000, 1000, 8);
         sleep(6000);
+        List<UiObject2> rows;
+        UiObject2 row;
         for (int i1 = 0; i1 < 2; i1++) {
-            List<UiObject2> rows = mDevice.findObjects(By.res(PACKAGE, "row"));
+            rows = mDevice.findObjects(By.res(PACKAGE, "row"));
             int countRows = rows.size();
             for (int i = 0; i < countRows; i++) {
                 waitObj("row");
-                UiObject2 row = rows.get(i);
+                row = rows.get(i);
                 if (row.hasObject(By.res(PACKAGE, "mission_i__title"))) {
                     String missionTitle = row.findObject(By.res(PACKAGE, "mission_i__title")).getText();//заголовок задания
                     if (!set.contains(missionTitle)) {
@@ -595,28 +588,6 @@ public class ChangeTextBehaviorTest {
             sleep(6000);
         }
     }
-//        UiObject2 ui1 = mDevice.findObject(By.res(PACKAGE, "btn_mission_public")).getParent().getParent();
-//        Log.w("MyTag", "hey2");
-//        List<UiObject2> rows1 = ui1.getChildren();
-//        for (UiObject2 ui : rows1) {
-//
-//            List<UiObject2> list2 = ui.getChildren();
-//            Log.w("MyTag", "hey");
-//            for (UiObject2 ui2 : list2) {
-//                List<UiObject2> list3 = ui2.getChildren();
-//                Log.w("MyTag", "hey");
-//                for (UiObject2 ui3 : list3) {
-//                    List<UiObject2> list4 = ui3.getChildren();
-//                    Log.w("MyTag", "hey");
-//                    for (UiObject2 ui4 : list4) {
-//                        List<UiObject2> list5 = ui4.getChildren();
-//                        Log.w("MyTag", "hey");
-//
-//                    }
-//                }
-//            }
-//        }
-//        Log.w("MyTag", "hey");
 
     private int getMyMoney() {
         String hc = mDevice.findObject(By.res(PACKAGE, "stat_cash")).getText();
@@ -679,7 +650,8 @@ public class ChangeTextBehaviorTest {
                                     break;
                                 }
                         case 6: {
-                                    action = arr[6];
+                                    //action = arr[6];
+                                    action ="";
                                     break;
                                 }
 
@@ -750,7 +722,7 @@ public class ChangeTextBehaviorTest {
                     action = client.getAction();
                 }
                 bw.write(client.getIp() + " зх " + rep + " зх " + owner + " зх " + level + " зх " +
-                        lastCrack + " зх " + guild + " зх " + action +"\n");
+                        lastCrack + " зх " + guild + " зх " + action + " зх " + "\n");
             }
             bw.close();
         } catch (IOException e) {
@@ -899,3 +871,50 @@ public class ChangeTextBehaviorTest {
         return resolveInfo.activityInfo.packageName;
     }
 }
+
+//TRASH
+//        UiObject2 ui1 = mDevice.findObject(By.res(PACKAGE, "btn_mission_public")).getParent().getParent();
+//        Log.w("MyTag", "hey2");
+//        List<UiObject2> rows1 = ui1.getChildren();
+//        for (UiObject2 ui : rows1) {
+//
+//            List<UiObject2> list2 = ui.getChildren();
+//            Log.w("MyTag", "hey");
+//            for (UiObject2 ui2 : list2) {
+//                List<UiObject2> list3 = ui2.getChildren();
+//                Log.w("MyTag", "hey");
+//                for (UiObject2 ui3 : list3) {
+//                    List<UiObject2> list4 = ui3.getChildren();
+//                    Log.w("MyTag", "hey");
+//                    for (UiObject2 ui4 : list4) {
+//                        List<UiObject2> list5 = ui4.getChildren();
+//                        Log.w("MyTag", "hey");
+//
+//                    }
+//                }
+//            }
+//        }
+//        Log.w("MyTag", "hey");
+//        try {
+//            File sdcard = Environment.getExternalStorageDirectory();
+//            File file = new File(sdcard, "Download/MyBot/Test.txt");
+//            file.createNewFile();
+//            PrintWriter writer = new PrintWriter(file);
+//            writer.print("");
+//            writer.close();
+//            BufferedWriter bw = new BufferedWriter(new FileWriter(file, true));
+//            bw.write(s);
+//            bw.close();
+//        } catch (IOException e) {
+//        }
+
+//        waitAndClick("img_hardware");
+//        mDevice.wait(Until.findObject(By.res(PACKAGE, "lv_hardware")), 30000);
+//        UiScrollable hardList = new UiScrollable(
+//                new UiSelector()
+//                        .resourceId("net.okitoo.hackers:id/lv_hardware")
+//                        .scrollable(true)
+//        );
+//        hardList.setAsVerticalList();
+//        hardList.scrollToEnd(3);
+//        waitAndClick("btn_func");                           //collect
