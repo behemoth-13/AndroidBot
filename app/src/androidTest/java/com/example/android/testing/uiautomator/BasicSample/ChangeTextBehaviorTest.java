@@ -13,6 +13,7 @@ import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.SdkSuppress;
 import android.support.test.runner.AndroidJUnit4;
 import android.support.test.uiautomator.By;
+import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
@@ -62,29 +63,33 @@ public class ChangeTextBehaviorTest {
     private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss");
     private int myRep = 0;
 
-    @Before
-    public void startMainActivityFromHomeScreen() {
+//    @Before
+//    public void startMainActivityFromHomeScreen() {
+//
+//    }
+
+    @Test
+    public void runBot() throws UiObjectNotFoundException {
         mDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         mDevice.pressHome();
-
-        final String launcherPackage = getLauncherPackageName();
+        final Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.addCategory(Intent.CATEGORY_HOME);
+        context = InstrumentationRegistry.getContext();
+        PackageManager pm = context.getPackageManager();
+        ResolveInfo resolveInfo = pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
+        final String launcherPackage = resolveInfo.activityInfo.packageName;
         assertThat(launcherPackage, notNullValue());
         mDevice.wait(Until.hasObject(By.pkg(launcherPackage).depth(0)), LAUNCH_TIMEOUT);
 
         // Launch the blueprint app
         Context context = InstrumentationRegistry.getContext();
-        final Intent intent = context.getPackageManager()
+        final Intent intent1 = context.getPackageManager()
                 .getLaunchIntentForPackage(PACKAGE);
-        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);    // Clear out any previous instances
-        context.startActivity(intent);
+        intent1.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);    // Clear out any previous instances
+        context.startActivity(intent1);
 
         // Wait for the app to appear
         mDevice.wait(Until.hasObject(By.pkg(PACKAGE).depth(0)), LAUNCH_TIMEOUT);
-    }
-
-    @Test
-    public void runBot() throws UiObjectNotFoundException {
-
         initSavedIP();
         mDevice.wait(Until.findObject(By.res(PACKAGE, "whois_done")), 120000);
         mDevice.findObject(By.res(PACKAGE, "whois_done")).click();
@@ -430,9 +435,11 @@ public class ChangeTextBehaviorTest {
         Client nextClient = clients.poll();
         Date lastCrack = nextClient.getLastCrack();
         int countTries = 0;
+        collectMissions();
         while (lastCrack != null) {
+            Log.w("MyTag", "NextClient try: " + countTries);
 //            if (countTries > clients.size()) {
-//                collectMissions();
+//
 //                writeToDisc();
 //                countTries = 0;
 //            }
@@ -442,7 +449,7 @@ public class ChangeTextBehaviorTest {
                 if (nextClient.getAction() != null && !nextClient.getAction().equals("")) {
                     return nextClient;
                 }
-                if (rep > myRep*MIN_REP && rep < myRep*MAX_REP) {
+                if ((rep > myRep*MIN_REP && rep < myRep*MAX_REP) || rep == 0) {
                     return nextClient;
                 }
             }
@@ -455,139 +462,14 @@ public class ChangeTextBehaviorTest {
         return nextClient;
     }
 
-    private void collectMissions() {
-        List<String> set = new ArrayList<>();
-        waitAndClick("img_missions");//задания
-        waitAndClick("btn_mission_public");//кнопка поиск заданий
-        waitObj("public_missions_view");
-        mDevice.swipe(1000, 240, 1000, 1000, 8);
-        sleep(6000);
-        List<UiObject2> rows;
-        UiObject2 row;
-        for (int i1 = 0; i1 < 3; i1++) {
-            waitObj("row");
-            rows = mDevice.findObjects(By.res(PACKAGE, "row"));
-            int countRows = rows.size();
-            for (int i = 0; i < countRows; i++) {
-                waitObj("row");
-                row = rows.get(i);
-                Log.w("MyTag" , "view " + i1 + ". row" + i);
-                if (row.hasObject(By.res(PACKAGE, "mission_i__title"))) {
-                    String missionTitle = row.findObject(By.res(PACKAGE, "mission_i__title")).getText();//заголовок задания
-                    if (!set.contains(missionTitle)) {
-                        if (missionTitle.startsWith("Collect from") || missionTitle.startsWith("Delete logs")) {
-                            set.add(missionTitle);
-                            row.click();
-                            waitObj("mission_det_description");//обработка всплывающего окна
-                            mDevice.swipe(1000, 800, 1000, 600, 20);
-                            waitObj("mission_det_target_rep");
-                            String strRep = mDevice.findObject(By.res(PACKAGE, "mission_det_target_rep")).getText();
-                            strRep = strRep.substring(0, strRep.indexOf(' '));
-                            int rep = Integer.parseInt(strRep);
-                            if (rep > myRep*MAX_REP){//not valid
-                                click("btn_done");
-                            } else {//valid
-                                click("btn_start");
-                                while (!mDevice.hasObject(By.res(PACKAGE, "btn_mission_public")) && !mDevice.hasObject(By.res("android", "button1"))) {
-                                    sleep(800);
-                                }
-                                if (mDevice.hasObject(By.res(PACKAGE, "btn_mission_public"))) {
-                                    click("btn_mission_public");
-                                } else if (mDevice.hasObject(By.res("android", "button1"))){
-                                    if (mDevice.hasObject(By.res(PACKAGE, "app_input_prompt"))) {//капча
-                                        Log.w("MyTag" , "captcha");
-                                        String s = waitAndGetText("app_input_prompt");
-                                        Pattern p = Pattern.compile("!:\\s[0-9]{3}");
-                                        Matcher m = p.matcher(s);
-                                        m.find();
-                                        mDevice.findObject(By.res(PACKAGE, "app_input_data")).setText(s.substring(m.start() + 3, m.end()));//ввод капчи
-                                    } else {
-                                        Log.w("MyTag", "4 hour expected");
-                                    }
-                                    mDevice.findObject(By.res("android", "button1")).click();
-                                }
-                            }
-                        } else if (missionTitle.startsWith("Do you have IP")) {
-                            set.add(missionTitle);
-//                            String owner = missionTitle.substring(18);
-//                            for (Client c : clients) {
-//                                if ((c.getOwner() != null) && (c.getOwner().equals(owner))) {//если есть совпадение
-//                                    row.click();
-//                                    click("btn_start");
-//                                    waitAndClick("btn_mission_public");
-//                                    c.setAction(Client.DO_YOU_HAVE);
-//                                }
-//                            }
-                        } else {//unknown mission
-                            set.add(missionTitle);
-                            Log.w("MyTag", "mission: " + missionTitle);
-                        }
-                    }
-                }
-            }
-            mDevice.swipe(1000, 1000, 1000, 140, 100);
-            sleep(6000);
-        }
-        parseMissions();
-        waitAndClick("img_connection");
-    }
-
-    private void parseMissions() {
-        List<String> set = new ArrayList<>();
-        waitAndClick("btn_mission_my");//кнопка Активные задания
-        waitObj("row");
-        mDevice.swipe(1000, 240, 1000, 1000, 8);
-        sleep(6000);
-        List<UiObject2> rows;
-        UiObject2 row;
-        for (int i1 = 0; i1 < 2; i1++) {
-            rows = mDevice.findObjects(By.res(PACKAGE, "row"));
-            int countRows = rows.size();
-            for (int i = 0; i < countRows; i++) {
-                waitObj("row");
-                row = rows.get(i);
-                if (row.hasObject(By.res(PACKAGE, "mission_i__title"))) {
-                    String missionTitle = row.findObject(By.res(PACKAGE, "mission_i__title")).getText();//заголовок задания
-                    if (!set.contains(missionTitle)) {
-                        if (missionTitle.startsWith("Collect from") || missionTitle.startsWith("Delete logs")) {
-                            set.add(missionTitle);
-                            row.click();
-                            waitObj("mission_det_description");//обработка всплывающего окна
-                            mDevice.swipe(1000, 800, 1000, 600, 20);
-                            String ip = waitAndGetText("mission_det_target");
-                            Client client = new Client();
-                            client.setIp(ip);
-                            String action = "";
-                            if (missionTitle.startsWith("Collect from")) {
-                                action = Client.COLLECT;
-                            } else if (missionTitle.startsWith("Delete logs")) {
-                                action = Client.DELETE;
-                            }
-                            if (!clients.contains(client)) {
-                                client.setAction(action);
-                                clients.offer(client);
-                            } else {
-                                for (Client c : clients) {
-                                    if (c.getIp().equals(ip)) {
-                                        c.setAction(action);
-                                    }
-                                }
-                            }
-                            waitAndClick("btn_done");
-                        } else if (missionTitle.startsWith("Do you have IP")) {
-                            set.add(missionTitle);
-                        } else {//unknown mission
-                            set.add(missionTitle);
-                            Log.w("MyTag", "mission: " + missionTitle);
-                        }
-                    }
-                }
-            }
-            mDevice.swipe(1000, 1000, 1000, 140, 100);
-            rows = null;
-            sleep(6000);
-        }
-    }
+   private void collectMissions() {
+       waitAndClick("img_missions");//задания
+       waitAndClick("btn_mission_public");//кнопка поиск заданий
+       waitObj("public_missions_view");
+       mDevice.swipe(1000, 240, 1000, 1000, 8);
+       UiObject2 panel = mDevice.findObject(By.res(PACKAGE, "lv_p_mission"));
+       panel.scroll(Direction.DOWN, 1);//3.75 lists
+   }
 
     private int getMyMoney() {
         String hc = mDevice.findObject(By.res(PACKAGE, "stat_cash")).getText();
@@ -860,15 +742,6 @@ public class ChangeTextBehaviorTest {
                     guild + " зх " +
                     action;
         }
-    }
-
-    private String getLauncherPackageName() {
-        final Intent intent = new Intent(Intent.ACTION_MAIN);
-        intent.addCategory(Intent.CATEGORY_HOME);
-        context = InstrumentationRegistry.getContext();
-        PackageManager pm = context.getPackageManager();
-        ResolveInfo resolveInfo = pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
-        return resolveInfo.activityInfo.packageName;
     }
 }
 

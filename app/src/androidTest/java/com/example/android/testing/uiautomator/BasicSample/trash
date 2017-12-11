@@ -1,0 +1,133 @@
+ private void collectMissions() {
+        List<String> set = new ArrayList<>();
+        waitAndClick("img_missions");//задания
+        waitAndClick("btn_mission_public");//кнопка поиск заданий
+        waitObj("public_missions_view");
+        mDevice.swipe(1000, 240, 1000, 1000, 8);
+        sleep(6000);
+        List<UiObject2> rows;
+        UiObject2 row;
+        for (int i1 = 0; i1 < 3; i1++) {
+            waitObj("row");
+            rows = mDevice.findObjects(By.res(PACKAGE, "row"));
+            int countRows = rows.size();
+            for (int i = 0; i < countRows; i++) {
+                waitObj("row");
+                row = rows.get(i);
+                Log.w("MyTag" , "view " + i1 + ". row" + i);
+                if (row.hasObject(By.res(PACKAGE, "mission_i__title"))) {
+                    String missionTitle = row.findObject(By.res(PACKAGE, "mission_i__title")).getText();//заголовок задания
+                    if (!set.contains(missionTitle)) {
+                        if (missionTitle.startsWith("Collect from") || missionTitle.startsWith("Delete logs")) {
+                            set.add(missionTitle);
+                            row.click();
+                            waitObj("mission_det_description");//обработка всплывающего окна
+                            mDevice.swipe(1000, 800, 1000, 600, 20);
+                            waitObj("mission_det_target_rep");
+                            String strRep = mDevice.findObject(By.res(PACKAGE, "mission_det_target_rep")).getText();
+                            strRep = strRep.substring(0, strRep.indexOf(' '));
+                            int rep = Integer.parseInt(strRep);
+                            if (rep > myRep*MAX_REP){//not valid
+                                click("btn_done");
+                            } else {//valid
+                                click("btn_start");
+                                while (!mDevice.hasObject(By.res(PACKAGE, "btn_mission_public")) && !mDevice.hasObject(By.res("android", "button1"))) {
+                                    sleep(800);
+                                }
+                                if (mDevice.hasObject(By.res(PACKAGE, "btn_mission_public"))) {
+                                    click("btn_mission_public");
+                                } else if (mDevice.hasObject(By.res("android", "button1"))){
+                                    if (mDevice.hasObject(By.res(PACKAGE, "app_input_prompt"))) {//капча
+                                        Log.w("MyTag" , "captcha");
+                                        String s = waitAndGetText("app_input_prompt");
+                                        Pattern p = Pattern.compile("!:\\s[0-9]{3}");
+                                        Matcher m = p.matcher(s);
+                                        m.find();
+                                        mDevice.findObject(By.res(PACKAGE, "app_input_data")).setText(s.substring(m.start() + 3, m.end()));//ввод капчи
+                                    } else {
+                                        Log.w("MyTag", "4 hour expected");
+                                    }
+                                    mDevice.findObject(By.res("android", "button1")).click();
+                                }
+                            }
+                        } else if (missionTitle.startsWith("Do you have IP")) {
+                            set.add(missionTitle);
+//                            String owner = missionTitle.substring(18);
+//                            for (Client c : clients) {
+//                                if ((c.getOwner() != null) && (c.getOwner().equals(owner))) {//если есть совпадение
+//                                    row.click();
+//                                    click("btn_start");
+//                                    waitAndClick("btn_mission_public");
+//                                    c.setAction(Client.DO_YOU_HAVE);
+//                                }
+//                            }
+                        } else {//unknown mission
+                            set.add(missionTitle);
+                            Log.w("MyTag", "mission: " + missionTitle);
+                        }
+                    }
+                }
+            }
+            mDevice.swipe(1000, 1000, 1000, 140, 100);
+            sleep(6000);
+        }
+        parseMissions();
+        waitAndClick("img_connection");
+    }
+
+    private void parseMissions() {
+        List<String> set = new ArrayList<>();
+        waitAndClick("btn_mission_my");//кнопка Активные задания
+        waitObj("row");
+        mDevice.swipe(1000, 240, 1000, 1000, 8);
+        sleep(6000);
+        List<UiObject2> rows;
+        UiObject2 row;
+        for (int i1 = 0; i1 < 2; i1++) {
+            rows = mDevice.findObjects(By.res(PACKAGE, "row"));
+            int countRows = rows.size();
+            for (int i = 0; i < countRows; i++) {
+                waitObj("row");
+                row = rows.get(i);
+                if (row.hasObject(By.res(PACKAGE, "mission_i__title"))) {
+                    String missionTitle = row.findObject(By.res(PACKAGE, "mission_i__title")).getText();//заголовок задания
+                    if (!set.contains(missionTitle)) {
+                        if (missionTitle.startsWith("Collect from") || missionTitle.startsWith("Delete logs")) {
+                            set.add(missionTitle);
+                            row.click();
+                            waitObj("mission_det_description");//обработка всплывающего окна
+                            mDevice.swipe(1000, 800, 1000, 600, 20);
+                            String ip = waitAndGetText("mission_det_target");
+                            Client client = new Client();
+                            client.setIp(ip);
+                            String action = "";
+                            if (missionTitle.startsWith("Collect from")) {
+                                action = Client.COLLECT;
+                            } else if (missionTitle.startsWith("Delete logs")) {
+                                action = Client.DELETE;
+                            }
+                            if (!clients.contains(client)) {
+                                client.setAction(action);
+                                clients.offer(client);
+                            } else {
+                                for (Client c : clients) {
+                                    if (c.getIp().equals(ip)) {
+                                        c.setAction(action);
+                                    }
+                                }
+                            }
+                            waitAndClick("btn_done");
+                        } else if (missionTitle.startsWith("Do you have IP")) {
+                            set.add(missionTitle);
+                        } else {//unknown mission
+                            set.add(missionTitle);
+                            Log.w("MyTag", "mission: " + missionTitle);
+                        }
+                    }
+                }
+            }
+            mDevice.swipe(1000, 1000, 1000, 140, 100);
+            rows = null;
+            sleep(6000);
+        }
+    }
