@@ -1,3 +1,51 @@
+ //TRASH
+ //        UiObject2 ui1 = mDevice.findObject(By.res(PACKAGE, "btn_mission_public")).getParent().getParent();
+ //        Log.w("MyTag", "hey2");
+ //        List<UiObject2> rows1 = ui1.getChildren();
+ //        for (UiObject2 ui : rows1) {
+ //
+ //            List<UiObject2> list2 = ui.getChildren();
+ //            Log.w("MyTag", "hey");
+ //            for (UiObject2 ui2 : list2) {
+ //                List<UiObject2> list3 = ui2.getChildren();
+ //                Log.w("MyTag", "hey");
+ //                for (UiObject2 ui3 : list3) {
+ //                    List<UiObject2> list4 = ui3.getChildren();
+ //                    Log.w("MyTag", "hey");
+ //                    for (UiObject2 ui4 : list4) {
+ //                        List<UiObject2> list5 = ui4.getChildren();
+ //                        Log.w("MyTag", "hey");
+ //
+ //                    }
+ //                }
+ //            }
+ //        }
+ //        Log.w("MyTag", "hey");
+ //        try {
+ //            File sdcard = Environment.getExternalStorageDirectory();
+ //            File file = new File(sdcard, "Download/MyBot/Test.txt");
+ //            file.createNewFile();
+ //            PrintWriter writer = new PrintWriter(file);
+ //            writer.print("");
+ //            writer.close();
+ //            BufferedWriter bw = new BufferedWriter(new FileWriter(file, true));
+ //            bw.write(s);
+ //            bw.close();
+ //        } catch (IOException e) {
+ //        }
+
+ //        waitAndClick("img_hardware");
+ //        mDevice.wait(Until.findObject(By.res(PACKAGE, "lv_hardware")), 30000);
+ //        UiScrollable hardList = new UiScrollable(
+ //                new UiSelector()
+ //                        .resourceId("net.okitoo.hackers:id/lv_hardware")
+ //                        .scrollable(true)
+ //        );
+ //        hardList.setAsVerticalList();
+ //        hardList.scrollToEnd(3);
+ //        waitAndClick("btn_func");                           //collect
+
+
  private void collectMissions() {
         List<String> set = new ArrayList<>();
         waitAndClick("img_missions");//задания

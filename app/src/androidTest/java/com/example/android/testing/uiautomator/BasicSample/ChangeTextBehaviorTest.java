@@ -1,6 +1,5 @@
 package com.example.android.testing.uiautomator.BasicSample;
 
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -17,11 +16,8 @@ import android.support.test.uiautomator.Direction;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
 import android.support.test.uiautomator.UiObjectNotFoundException;
-import android.support.test.uiautomator.UiScrollable;
-import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
 import android.util.Log;
-import android.widget.Toast;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -33,13 +29,10 @@ import java.io.PrintWriter;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -54,46 +47,56 @@ public class ChangeTextBehaviorTest {
     private static final String MY_IP = "53.95.120.218";
     private static final int LAUNCH_TIMEOUT = 5000;
     private static final String PATH_SAVED_CLIENTS = "Download/MyBot/SavedClients.txt";
-    private static final float MAX_REP = 1.5f;
-    private static final float MIN_REP = 0.75f;
+    private static final String PATH_SAVED_MISSIONS = "Download/MyBot/SavedMissions.txt";
+    private static final float MAX_REP = 1.5f;//1.5 default
+    private static final float MIN_REP = 0.4f;//0.75 default
+    private static final boolean IS_LAUNCHED = true;
 
     private UiDevice mDevice;
-    private Context context;
     private Queue<Client> clients = new LinkedList<>();
     private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss");
     private int myRep = 0;
 
-//    @Before
-//    public void startMainActivityFromHomeScreen() {
-//
-//    }
 
     @Test
-    public void runBot() throws UiObjectNotFoundException {
+    public void runTest() throws UiObjectNotFoundException {
+        proxyMethod();
+    }
+
+    private void proxyMethod() {
+        try {
+            runBot();
+        } catch (Exception e) {
+            proxyMethod();
+        }
+    }
+
+    private void runBot() throws UiObjectNotFoundException {
         mDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        mDevice.pressHome();
-        final Intent intent = new Intent(Intent.ACTION_MAIN);
-        intent.addCategory(Intent.CATEGORY_HOME);
-        context = InstrumentationRegistry.getContext();
-        PackageManager pm = context.getPackageManager();
-        ResolveInfo resolveInfo = pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
-        final String launcherPackage = resolveInfo.activityInfo.packageName;
-        assertThat(launcherPackage, notNullValue());
-        mDevice.wait(Until.hasObject(By.pkg(launcherPackage).depth(0)), LAUNCH_TIMEOUT);
 
-        // Launch the blueprint app
-        Context context = InstrumentationRegistry.getContext();
-        final Intent intent1 = context.getPackageManager()
-                .getLaunchIntentForPackage(PACKAGE);
-        intent1.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);    // Clear out any previous instances
-        context.startActivity(intent1);
+        if(!IS_LAUNCHED) {
+            mDevice.pressHome();
+            final Intent intent = new Intent(Intent.ACTION_MAIN);
+            intent.addCategory(Intent.CATEGORY_HOME);
+            PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
+            ResolveInfo resolveInfo = pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
+            final String launcherPackage = resolveInfo.activityInfo.packageName;
+            assertThat(launcherPackage, notNullValue());
+            mDevice.wait(Until.hasObject(By.pkg(launcherPackage).depth(0)), LAUNCH_TIMEOUT);
 
-        // Wait for the app to appear
-        mDevice.wait(Until.hasObject(By.pkg(PACKAGE).depth(0)), LAUNCH_TIMEOUT);
+            Context context = InstrumentationRegistry.getContext();
+            final Intent intent1 = context.getPackageManager()
+                    .getLaunchIntentForPackage(PACKAGE);
+            intent1.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);    // Clear out any previous instances
+            context.startActivity(intent1);
+
+            // Wait for the app to appear
+            mDevice.wait(Until.hasObject(By.pkg(PACKAGE).depth(0)), LAUNCH_TIMEOUT);
+            mDevice.wait(Until.findObject(By.res(PACKAGE, "whois_done")), 120000);
+            mDevice.findObject(By.res(PACKAGE, "whois_done")).click();
+        }
+
         initSavedIP();
-        mDevice.wait(Until.findObject(By.res(PACKAGE, "whois_done")), 120000);
-        mDevice.findObject(By.res(PACKAGE, "whois_done")).click();
-        //waitAndClick("whois_done");
         waitAndClick("img_connection");                            //диспетчер подключений
         myRep = Integer.parseInt(waitAndGetText("stat_rep"));//берем репутацию
         waitAndClick("connection_firewall");                //журнал подключений
@@ -107,12 +110,12 @@ public class ChangeTextBehaviorTest {
         sleep(500);
         while(mDevice.hasObject(By.res(PACKAGE, "list_ip"))) {
             saveIP(waitAndGetText("list_ip"));
-            int x = 1700;
-            int y = 200;
+            int x = 1000;
+            int y = 60;
             mDevice.swipe(x, y, x, y, 80);
             sleep(2000);
         }
-        writeToDisc();
+        writeClientsToDisc();
 
         //while true
         for (int i = 0; i < 100000 ; i++) {
@@ -167,8 +170,8 @@ public class ChangeTextBehaviorTest {
                         mDevice.findObject(By.res("android", "button1")).click();
                         waitAndClick("bounce_delete");//закрыть ip слева
                         sleep(500);
-                        int x = 1700;
-                        int y = 200;
+                        int x = 1000;
+                        int y = 60;
                         mDevice.swipe(x, y, x, y, 80);//закрыть ip в списке справа
                         sleep(500);
                         continue;
@@ -340,15 +343,15 @@ public class ChangeTextBehaviorTest {
                 waitAndClick("whois_done");//закрыть всплывающее окно
                 waitAndClick("bounce_delete");//закрыть ip слева
                 sleep(500);
-                int x = 1700;
-                int y = 200;
-                mDevice.swipe(x, y, x, y, 80);//400
+                int x = 1000;
+                int y = 60;
+                mDevice.swipe(x, y, x, y, 80);
                 sleep(500);
             } else {
                 waitAndClick("whois_done");
             }
         }
-        writeToDisc();
+        writeClientsToDisc();
 
 
 
@@ -426,7 +429,7 @@ public class ChangeTextBehaviorTest {
                 clients.offer(client);
             }
 
-            writeToDisc();
+            writeClientsToDisc();
             return true;
         }
     }
@@ -435,12 +438,12 @@ public class ChangeTextBehaviorTest {
         Client nextClient = clients.poll();
         Date lastCrack = nextClient.getLastCrack();
         int countTries = 0;
-        collectMissions();
+        //collectMissions();
         while (lastCrack != null) {
             Log.w("MyTag", "NextClient try: " + countTries);
 //            if (countTries > clients.size()) {
 //
-//                writeToDisc();
+//                writeClientsToDisc();
 //                countTries = 0;
 //            }
             long afterCrack = new Date().getTime() - lastCrack.getTime();
@@ -463,6 +466,10 @@ public class ChangeTextBehaviorTest {
     }
 
    private void collectMissions() {
+       initSavedMissions();
+   }
+
+   private void getActualMission() {
        waitAndClick("img_missions");//задания
        waitAndClick("btn_mission_public");//кнопка поиск заданий
        waitObj("public_missions_view");
@@ -532,8 +539,8 @@ public class ChangeTextBehaviorTest {
                                     break;
                                 }
                         case 6: {
-                                    //action = arr[6];
-                                    action ="";
+                                    action = arr[6];
+                                    //action ="";
                                     break;
                                 }
 
@@ -557,6 +564,49 @@ public class ChangeTextBehaviorTest {
         }
     }
 
+    private void initSavedMissions() {
+        File sdcard = Environment.getExternalStorageDirectory();
+        File file = new File(sdcard, PATH_SAVED_MISSIONS);
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(file));
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] arr = line.split("\\sзх\\s");
+                String mission = "";
+                Date lastGet = null;
+                for (int i = 0; i < arr.length; i++) {
+                    switch (i) {
+                        case 0: {
+                            mission = arr[0];
+                            break;
+                        }
+                        case 1: {
+                            if (!arr[1].equals("")){
+                                //rep = Integer.parseInt(arr[1]);
+                            }
+                            break;
+                        }
+                    }
+                }
+                //Client client = new Client(ip, rep, owner, level, lastCrack, guild, action);
+//                if (!clients.contains(client)) {
+//                    clients.offer(client);
+//                }
+            }
+            br.close();
+        }
+        catch (IOException e) {
+            try {
+                file.createNewFile();
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+        }
+//        catch (ParseException e) {
+//            e.printStackTrace();
+//        }
+    }
+
     private void saveIP(String ip) {
         Client c = new Client();
         c.setIp(ip);
@@ -570,7 +620,7 @@ public class ChangeTextBehaviorTest {
         }
     }
 
-    private void writeToDisc() {
+    private void writeClientsToDisc() {
         try {
             File sdcard = Environment.getExternalStorageDirectory();
             File file = new File(sdcard, PATH_SAVED_CLIENTS);
@@ -744,50 +794,3 @@ public class ChangeTextBehaviorTest {
         }
     }
 }
-
-//TRASH
-//        UiObject2 ui1 = mDevice.findObject(By.res(PACKAGE, "btn_mission_public")).getParent().getParent();
-//        Log.w("MyTag", "hey2");
-//        List<UiObject2> rows1 = ui1.getChildren();
-//        for (UiObject2 ui : rows1) {
-//
-//            List<UiObject2> list2 = ui.getChildren();
-//            Log.w("MyTag", "hey");
-//            for (UiObject2 ui2 : list2) {
-//                List<UiObject2> list3 = ui2.getChildren();
-//                Log.w("MyTag", "hey");
-//                for (UiObject2 ui3 : list3) {
-//                    List<UiObject2> list4 = ui3.getChildren();
-//                    Log.w("MyTag", "hey");
-//                    for (UiObject2 ui4 : list4) {
-//                        List<UiObject2> list5 = ui4.getChildren();
-//                        Log.w("MyTag", "hey");
-//
-//                    }
-//                }
-//            }
-//        }
-//        Log.w("MyTag", "hey");
-//        try {
-//            File sdcard = Environment.getExternalStorageDirectory();
-//            File file = new File(sdcard, "Download/MyBot/Test.txt");
-//            file.createNewFile();
-//            PrintWriter writer = new PrintWriter(file);
-//            writer.print("");
-//            writer.close();
-//            BufferedWriter bw = new BufferedWriter(new FileWriter(file, true));
-//            bw.write(s);
-//            bw.close();
-//        } catch (IOException e) {
-//        }
-
-//        waitAndClick("img_hardware");
-//        mDevice.wait(Until.findObject(By.res(PACKAGE, "lv_hardware")), 30000);
-//        UiScrollable hardList = new UiScrollable(
-//                new UiSelector()
-//                        .resourceId("net.okitoo.hackers:id/lv_hardware")
-//                        .scrollable(true)
-//        );
-//        hardList.setAsVerticalList();
-//        hardList.scrollToEnd(3);
-//        waitAndClick("btn_func");                           //collect
