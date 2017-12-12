@@ -30,8 +30,10 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -54,6 +56,7 @@ public class ChangeTextBehaviorTest {
 
     private UiDevice mDevice;
     private Queue<Client> clients = new LinkedList<>();
+    private Map<String, Date> missions = new HashMap<>();
     private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss");
     private int myRep = 0;
 
@@ -97,6 +100,7 @@ public class ChangeTextBehaviorTest {
         }
 
         initSavedIP();
+        initSavedMissions();
         waitAndClick("img_connection");                            //диспетчер подключений
         myRep = Integer.parseInt(waitAndGetText("stat_rep"));//берем репутацию
         waitAndClick("connection_firewall");                //журнал подключений
@@ -466,7 +470,133 @@ public class ChangeTextBehaviorTest {
     }
 
    private void collectMissions() {
-       initSavedMissions();
+       waitAndClick("img_missions");//задания
+       waitObj("row");
+       sleep(1000);
+       List<UiObject2> listMyMissions = mDevice.findObjects(By.res(PACKAGE, "mission_i__title"));
+       int restsMissions = 10 - listMyMissions.size();
+       collectStartedMissions(listMyMissions);
+
+
+       waitAndClick("btn_mission_public");//кнопка поиск заданий
+       waitObj("public_missions_view");
+       UiObject2 panel = mDevice.findObject(By.res(PACKAGE, "lv_p_mission"));//список заданий
+       panel.scroll(Direction.UP, 1);//поднимаем в начало
+       List<UiObject2> listMissions;
+       for (int i = 0; i < 2; i++) {
+           listMissions = mDevice.findObjects(By.res(PACKAGE, "mission_i__title"));
+           for (UiObject2 title : listMissions) {
+               if (restsMissions == 0) {
+                   break;
+               }
+               String missionTitle = title.getText();
+               if (missionTitle.startsWith("Collect from") || missionTitle.startsWith("Delete logs")) {
+                   Date date = missions.get(missionTitle);
+                   if (date != null) {//миссия уже выполнялась
+                       if ((new Date().getTime() - date.getTime()) > 1000*60*60*4) {//прошло 4 часа
+                           if (startMission(title, missionTitle)) {
+                               restsMissions--;
+                           }
+                       }
+                   } else {//миссия не выполнялась
+                       if (startMission(title, missionTitle)) {
+                           restsMissions--;
+                       }
+                   }
+               } else if (missionTitle.startsWith("Do you have IP")) {
+
+               } else {//unknown mission
+                   Log.w("MyTag", "unknown mission: " + missionTitle);
+               }
+           }
+           if (restsMissions == 0) {
+               break;
+           }
+       }
+
+
+
+
+       writeMissionsToDisc();
+   }
+
+   private boolean startMission(UiObject2 title, String missionTitle) {
+       title.click();
+       waitObj("mission_det_description");//обработка всплывающего окна
+       //mDevice.swipe(1000, 800, 1000, 600, 20);
+       waitObj("mission_det_target_rep");
+       String strRep = mDevice.findObject(By.res(PACKAGE, "mission_det_target_rep")).getText();
+       strRep = strRep.substring(0, strRep.indexOf(' '));
+       int rep = Integer.parseInt(strRep);
+       if (rep > myRep*MAX_REP){//not valid
+           click("btn_done");
+           return false;
+       } else {//valid
+           click("btn_start");
+           missions.put(missionTitle, new Date());
+           while (!mDevice.hasObject(By.res(PACKAGE, "btn_mission_public")) && !mDevice.hasObject(By.res("android", "button1"))) {
+               sleep(800);
+           }
+           if (mDevice.hasObject(By.res(PACKAGE, "btn_mission_public"))) {
+               click("btn_mission_public");
+               return true;
+           } else if (mDevice.hasObject(By.res("android", "button1"))){
+               if (mDevice.hasObject(By.res(PACKAGE, "app_input_prompt"))) {//капча
+                   Log.w("MyTag" , "captcha");
+                   String s = waitAndGetText("app_input_prompt");
+                   Pattern p = Pattern.compile("!:\\s[0-9]{3}");
+                   Matcher m = p.matcher(s);
+                   m.find();
+                   mDevice.findObject(By.res(PACKAGE, "app_input_data")).setText(s.substring(m.start() + 3, m.end()));//ввод капчи
+                   //возможен баг
+               } else {
+                   Log.w("MyTag", "4 hour expected");
+
+               }
+               mDevice.findObject(By.res("android", "button1")).click();
+               return false;
+           }
+           return false;
+       }
+   }
+
+   private void collectStartedMissions(List<UiObject2> listMyMissions) {
+       for (UiObject2 title : listMyMissions) {
+           String missionTitle = title.getText();
+           if (!missions.containsKey(missionTitle)) {
+               if (missionTitle.startsWith("Collect from") || missionTitle.startsWith("Delete logs")) {
+                   missions.put(missionTitle, new Date());
+                   title.click();
+                   waitObj("mission_det_description");//обработка всплывающего окна
+                   //mDevice.swipe(1000, 800, 1000, 600, 20);
+                   String ip = waitAndGetText("mission_det_target");
+                   Client client = new Client();
+                   client.setIp(ip);
+                   String action = "";
+                   if (missionTitle.startsWith("Collect from")) {
+                       action = Client.COLLECT;
+                   } else if (missionTitle.startsWith("Delete logs")) {
+                       action = Client.DELETE;
+                   }
+                   if (!clients.contains(client)) {
+                       client.setAction(action);
+                       clients.offer(client);
+                   } else {
+                       for (Client c : clients) {
+                           if (c.getIp().equals(ip)) {
+                               c.setAction(action);
+                           }
+                       }
+                   }
+                   waitAndClick("btn_done");
+               } else if (missionTitle.startsWith("Do you have IP")) {
+                   missions.put(missionTitle, new Date());
+               } else {//unknown mission
+                   missions.put(missionTitle, new Date());
+                   Log.w("MyTag", "mission: " + missionTitle);
+               }
+           }
+       }
    }
 
    private void getActualMission() {
@@ -567,6 +697,7 @@ public class ChangeTextBehaviorTest {
     private void initSavedMissions() {
         File sdcard = Environment.getExternalStorageDirectory();
         File file = new File(sdcard, PATH_SAVED_MISSIONS);
+        long now = new Date().getTime();
         try {
             BufferedReader br = new BufferedReader(new FileReader(file));
             String line;
@@ -581,17 +712,16 @@ public class ChangeTextBehaviorTest {
                             break;
                         }
                         case 1: {
-                            if (!arr[1].equals("")){
-                                //rep = Integer.parseInt(arr[1]);
+                            if (!arr[4].equals("")) {
+                                lastGet = dateFormat.parse(arr[1]);
                             }
                             break;
                         }
                     }
                 }
-                //Client client = new Client(ip, rep, owner, level, lastCrack, guild, action);
-//                if (!clients.contains(client)) {
-//                    clients.offer(client);
-//                }
+                if ((lastGet != null) && (now - lastGet.getTime()) < 1000*60*60*4) {
+                    missions.put(mission, lastGet);
+                }
             }
             br.close();
         }
@@ -601,10 +731,9 @@ public class ChangeTextBehaviorTest {
             } catch (IOException e1) {
                 e1.printStackTrace();
             }
+        } catch (ParseException e) {
+            e.printStackTrace();
         }
-//        catch (ParseException e) {
-//            e.printStackTrace();
-//        }
     }
 
     private void saveIP(String ip) {
@@ -660,7 +789,26 @@ public class ChangeTextBehaviorTest {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
 
+    private void writeMissionsToDisc() {
+        try {
+            File sdcard = Environment.getExternalStorageDirectory();
+            File file = new File(sdcard, PATH_SAVED_MISSIONS);
+            PrintWriter writer = new PrintWriter(file);
+            writer.print("");
+            writer.close();
+            BufferedWriter bw = new BufferedWriter(new FileWriter(file, true));
+            long now = new Date().getTime();
+            for (Map.Entry<String, Date> entry: missions.entrySet()) {
+                if ((now - entry.getValue().getTime()) < 1000*60*60*4) {
+                    bw.write(entry.getKey() + " зх " + dateFormat.format(entry.getValue()) + " зх " + "\n");
+                }
+            }
+            bw.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private boolean waitAndIsExist(String resIdWait, String resIdIsExist) {
