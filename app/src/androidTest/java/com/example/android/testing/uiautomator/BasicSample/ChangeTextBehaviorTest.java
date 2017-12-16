@@ -51,8 +51,8 @@ public class ChangeTextBehaviorTest {
     private static final String PATH_SAVED_CLIENTS = "Download/MyBot/SavedClients.txt";
     private static final String PATH_SAVED_MISSIONS = "Download/MyBot/SavedMissions.txt";
     private static final float MAX_REP = 1.5f;//1.5 default
-    private static final float MIN_REP = 0.4f;//0.75 default
-    private static final boolean IS_LAUNCHED = true;
+    private static final float MIN_REP = 0.75f;//0.75 default
+    private static  boolean IS_LAUNCHED = true;
 
     private UiDevice mDevice;
     private Queue<Client> clients = new LinkedList<>();
@@ -60,10 +60,12 @@ public class ChangeTextBehaviorTest {
     private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss");
     private int myRep = 0;
 
-
+//закомментированы 66,
+//добавлено 438         collectMissions();
     @Test
     public void runTest() throws UiObjectNotFoundException {
-        proxyMethod();
+        //proxyMethod();
+        runBot();
     }
 
     private void proxyMethod() {
@@ -122,7 +124,7 @@ public class ChangeTextBehaviorTest {
         writeClientsToDisc();
 
         //while true
-        for (int i = 0; i < 100000 ; i++) {
+        while (true) {
             Client nextClient = getNextClient();
 
             waitObj("connection_new_target");
@@ -145,9 +147,8 @@ public class ChangeTextBehaviorTest {
                     mDevice.findObject(By.res(PACKAGE, "app_input_data")).setText(s.substring(m.start() + 3, m.end()));//ввод капчи
                     mDevice.findObject(By.res("android", "button1")).click();
                     waitAndClick("whois_done");
-                    click("connections_add");
+                    waitAndClick("connections_add");
                     sleep(1000);//try to delete
-                    //continue;
                 }
             }
 
@@ -355,14 +356,7 @@ public class ChangeTextBehaviorTest {
                 waitAndClick("whois_done");
             }
         }
-        writeClientsToDisc();
-
-
-
-
-        //сейчас в дисп подключ
-
-        assertThat(mDevice, notNullValue());
+        //недостижимый код
     }
 
     private int getRestSeconds() {
@@ -442,14 +436,21 @@ public class ChangeTextBehaviorTest {
         Client nextClient = clients.poll();
         Date lastCrack = nextClient.getLastCrack();
         int countTries = 0;
-        //collectMissions();
+        if (IS_LAUNCHED) {
+            collectMissions();
+            writeClientsToDisc();
+            writeMissionsToDisc();
+            IS_LAUNCHED = false;
+        }
+
         while (lastCrack != null) {
             Log.w("MyTag", "NextClient try: " + countTries);
-//            if (countTries > clients.size()) {
-//
-//                writeClientsToDisc();
-//                countTries = 0;
-//            }
+            if (countTries > clients.size()) {
+                collectMissions();
+                writeClientsToDisc();
+                writeMissionsToDisc();
+                countTries = 0;
+            }
             long afterCrack = new Date().getTime() - lastCrack.getTime();
             int rep = nextClient.getRep();
             if (afterCrack > (1000*60*60 + 20000)) {//если был взломан более часа назад
@@ -473,23 +474,24 @@ public class ChangeTextBehaviorTest {
        waitAndClick("img_missions");//задания
        waitObj("row");
        sleep(1000);
-       List<UiObject2> listMyMissions = mDevice.findObjects(By.res(PACKAGE, "mission_i__title"));
-       int restsMissions = 10 - listMyMissions.size();
-       collectStartedMissions(listMyMissions);
 
+       int restsMissions = collectStartedMissions();
 
        waitAndClick("btn_mission_public");//кнопка поиск заданий
-       waitObj("public_missions_view");
-       UiObject2 panel = mDevice.findObject(By.res(PACKAGE, "lv_p_mission"));//список заданий
-       panel.scroll(Direction.UP, 1);//поднимаем в начало
-       List<UiObject2> listMissions;
+       waitObj("lv_p_mission");
+       mDevice.findObject(By.res(PACKAGE, "lv_p_mission")).scroll(Direction.UP, 0.5f, 700);//список заданий поднимаем в начало
+
        for (int i = 0; i < 2; i++) {
-           listMissions = mDevice.findObjects(By.res(PACKAGE, "mission_i__title"));
-           for (UiObject2 title : listMissions) {
+           waitObj("mission_i__title");
+           int countMissions = mDevice.findObject(By.res(PACKAGE, "lv_p_mission")).getChildCount();
+           for (int i1 = 0; i1 < countMissions; i1++) {
                if (restsMissions == 0) {
                    break;
                }
+               waitObj("mission_i__title");
+               UiObject2 title = mDevice.findObjects(By.res(PACKAGE, "mission_i__title")).get(i1);
                String missionTitle = title.getText();
+               Log.w("MyTag", "mission in process" + missionTitle);
                if (missionTitle.startsWith("Collect from") || missionTitle.startsWith("Delete logs")) {
                    Date date = missions.get(missionTitle);
                    if (date != null) {//миссия уже выполнялась
@@ -504,22 +506,68 @@ public class ChangeTextBehaviorTest {
                        }
                    }
                } else if (missionTitle.startsWith("Do you have IP")) {
-
+                   Log.w("MyTag", "doyouhave TODO");
                } else {//unknown mission
                    Log.w("MyTag", "unknown mission: " + missionTitle);
                }
            }
            if (restsMissions == 0) {
                break;
+           } else {
+               waitObj("lv_p_mission");
+               mDevice.findObject(By.res(PACKAGE, "lv_p_mission")).scroll(Direction.DOWN, 0.7f, 600);//список заданий поднимаем в конец
            }
        }
-
-
-
-
-       writeMissionsToDisc();
+       collectStartedMissions();
+       waitAndClick("img_connection");
    }
 
+    /** собирает инфу о взятых заданиях */
+    private int collectStartedMissions() {
+        waitAndClick("btn_mission_my");//кнопка Активные задания
+        waitObj("mission_i__title");
+        int countMyMissions = mDevice.findObject(By.res(PACKAGE, "lv_mission")).getChildCount();
+        for (int i = 0; i < countMyMissions; i++) {
+            waitObj("mission_i__title");
+            UiObject2 title = mDevice.findObjects(By.res(PACKAGE, "mission_i__title")).get(i);
+            String missionTitle = title.getText();
+            if (!missions.containsKey(missionTitle)) {
+                if (missionTitle.startsWith("Collect from") || missionTitle.startsWith("Delete logs")) {
+                    missions.put(missionTitle, new Date());
+                    title.click();
+                    waitObj("mission_det_description");//обработка всплывающего окна
+                    String ip = waitAndGetText("mission_det_target");
+                    Client client = new Client();
+                    client.setIp(ip);
+                    String action = "";
+                    if (missionTitle.startsWith("Collect from")) {
+                        action = Client.COLLECT;
+                    } else if (missionTitle.startsWith("Delete logs")) {
+                        action = Client.DELETE;
+                    }
+                    if (!clients.contains(client)) {
+                        client.setAction(action);
+                        clients.offer(client);
+                    } else {
+                        for (Client c : clients) {
+                            if (c.getIp().equals(ip)) {
+                                c.setAction(action);
+                            }
+                        }
+                    }
+                    waitAndClick("btn_done");
+                } else if (missionTitle.startsWith("Do you have IP")) {
+                    missions.put(missionTitle, new Date());
+                } else {//unknown mission
+                    missions.put(missionTitle, new Date());
+                    Log.w("MyTag", "unknown mission: " + missionTitle);
+                }
+            }
+        }
+        return 10 - countMyMissions;
+    }
+
+   /** обработка окна задания в поиске заданий */
    private boolean startMission(UiObject2 title, String missionTitle) {
        title.click();
        waitObj("mission_det_description");//обработка всплывающего окна
@@ -560,53 +608,7 @@ public class ChangeTextBehaviorTest {
        }
    }
 
-   private void collectStartedMissions(List<UiObject2> listMyMissions) {
-       for (UiObject2 title : listMyMissions) {
-           String missionTitle = title.getText();
-           if (!missions.containsKey(missionTitle)) {
-               if (missionTitle.startsWith("Collect from") || missionTitle.startsWith("Delete logs")) {
-                   missions.put(missionTitle, new Date());
-                   title.click();
-                   waitObj("mission_det_description");//обработка всплывающего окна
-                   //mDevice.swipe(1000, 800, 1000, 600, 20);
-                   String ip = waitAndGetText("mission_det_target");
-                   Client client = new Client();
-                   client.setIp(ip);
-                   String action = "";
-                   if (missionTitle.startsWith("Collect from")) {
-                       action = Client.COLLECT;
-                   } else if (missionTitle.startsWith("Delete logs")) {
-                       action = Client.DELETE;
-                   }
-                   if (!clients.contains(client)) {
-                       client.setAction(action);
-                       clients.offer(client);
-                   } else {
-                       for (Client c : clients) {
-                           if (c.getIp().equals(ip)) {
-                               c.setAction(action);
-                           }
-                       }
-                   }
-                   waitAndClick("btn_done");
-               } else if (missionTitle.startsWith("Do you have IP")) {
-                   missions.put(missionTitle, new Date());
-               } else {//unknown mission
-                   missions.put(missionTitle, new Date());
-                   Log.w("MyTag", "mission: " + missionTitle);
-               }
-           }
-       }
-   }
 
-   private void getActualMission() {
-       waitAndClick("img_missions");//задания
-       waitAndClick("btn_mission_public");//кнопка поиск заданий
-       waitObj("public_missions_view");
-       mDevice.swipe(1000, 240, 1000, 1000, 8);
-       UiObject2 panel = mDevice.findObject(By.res(PACKAGE, "lv_p_mission"));
-       panel.scroll(Direction.DOWN, 1);//3.75 lists
-   }
 
     private int getMyMoney() {
         String hc = mDevice.findObject(By.res(PACKAGE, "stat_cash")).getText();
@@ -712,7 +714,7 @@ public class ChangeTextBehaviorTest {
                             break;
                         }
                         case 1: {
-                            if (!arr[4].equals("")) {
+                            if (!arr[1].equals("")) {
                                 lastGet = dateFormat.parse(arr[1]);
                             }
                             break;
