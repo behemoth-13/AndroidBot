@@ -50,8 +50,8 @@ public class ChangeTextBehaviorTest {
     private static final int LAUNCH_TIMEOUT = 5000;
     private static final String PATH_SAVED_CLIENTS = "Download/MyBot/SavedClients.txt";
     private static final String PATH_SAVED_MISSIONS = "Download/MyBot/SavedMissions.txt";
-    private static final float MAX_REP = 1.5f;//1.5 default
-    private static final float MIN_REP = 0.75f;//0.75 default
+    private static final float MAX_REP = 0.98f;//1.5 default
+    private static final float MIN_REP = 0.26f;//0.75 default
     private static  boolean IS_LAUNCHED = true;
 
     private UiDevice mDevice;
@@ -232,19 +232,10 @@ public class ChangeTextBehaviorTest {
                             logIsDeleted = true;
                             rests = getRestSeconds();
                         } else if (!ipIsSaved){
-                            //for (int i2 = 0; i2 < 1; i2++) {
                             List<UiObject2> logs = mDevice.findObjects(By.res(PACKAGE, "log_item_ip"));//ip в логах
-//                            UiObject2 lastLog = null;
                             for (UiObject2 log : logs) {
                                 saveIP(log.getText());
-                                //lastLog = log;
                             }
-//                            if (lastLog != null) {
-//                                lastLog.swipe(Direction.UP, 1.0f, 2);
-//                            } else {
-//                                break;
-//                            }
-                            //}
                             ipIsSaved = true;
                         } else {
                             break;
@@ -306,10 +297,12 @@ public class ChangeTextBehaviorTest {
                                     log.getParent().findObject(By.res(PACKAGE, "log_item_del")).click(); //удалить лог
                                     i1--;
                                     sleep(1000);
+                                    waitObj("btn_disconnect");//кнопка отключения не видна изза всплывающего окна
+                                    logs = mDevice.findObjects(By.res(PACKAGE, "log_item_ip"));//ip в логах
+                                    countLogs = logs.size();
+                                } else {
+                                    saveIP(log.getText());
                                 }
-                                waitObj("btn_disconnect");//кнопка отключения не видна изза всплывающего окна
-                                logs = mDevice.findObjects(By.res(PACKAGE, "log_item_ip"));//ip в логах
-                                countLogs = logs.size();
                                 rests = getRestSeconds();
                                 if (rests < 7) {
                                     break;
@@ -317,21 +310,6 @@ public class ChangeTextBehaviorTest {
                             }
                             logIsDeleted = true;
                             rests = getRestSeconds();
-                        } else if (!ipIsSaved){
-                            //for (int i2 = 0; i2 < 1; i2++) {
-                            List<UiObject2> logs = mDevice.findObjects(By.res(PACKAGE, "log_item_ip"));//ip в логах
-//                            UiObject2 lastLog = null;
-                            for (UiObject2 log : logs) {
-                                saveIP(log.getText());
-                                //lastLog = log;
-                            }
-//                            if (lastLog != null) {
-//                                lastLog.swipe(Direction.UP, 1.0f, 2);
-//                            } else {
-//                                break;
-//                            }
-                            //}
-                            ipIsSaved = true;
                         } else {
                             break;
                         }
@@ -531,37 +509,37 @@ public class ChangeTextBehaviorTest {
             waitObj("mission_i__title");
             UiObject2 title = mDevice.findObjects(By.res(PACKAGE, "mission_i__title")).get(i);
             String missionTitle = title.getText();
-            if (!missions.containsKey(missionTitle)) {
-                if (missionTitle.startsWith("Collect from") || missionTitle.startsWith("Delete logs")) {
+            if (missionTitle.startsWith("Collect from") || missionTitle.startsWith("Delete logs")) {
+                if (!missions.containsKey(missionTitle)) {
                     missions.put(missionTitle, new Date());
-                    title.click();
-                    waitObj("mission_det_description");//обработка всплывающего окна
-                    String ip = waitAndGetText("mission_det_target");
-                    Client client = new Client();
-                    client.setIp(ip);
-                    String action = "";
-                    if (missionTitle.startsWith("Collect from")) {
-                        action = Client.COLLECT;
-                    } else if (missionTitle.startsWith("Delete logs")) {
-                        action = Client.DELETE;
-                    }
-                    if (!clients.contains(client)) {
-                        client.setAction(action);
-                        clients.offer(client);
-                    } else {
-                        for (Client c : clients) {
-                            if (c.getIp().equals(ip)) {
-                                c.setAction(action);
-                            }
+                }
+                title.click();
+                waitObj("mission_det_description");//обработка всплывающего окна
+                String ip = waitAndGetText("mission_det_target");
+                Client client = new Client();
+                client.setIp(ip);
+                String action = "";
+                if (missionTitle.startsWith("Collect from")) {
+                    action = Client.COLLECT;
+                } else if (missionTitle.startsWith("Delete logs")) {
+                    action = Client.DELETE;
+                }
+                if (!clients.contains(client)) {
+                    client.setAction(action);
+                    clients.offer(client);
+                } else {
+                    for (Client c : clients) {
+                        if (c.getIp().equals(ip)) {
+                            c.setAction(action);
                         }
                     }
-                    waitAndClick("btn_done");
-                } else if (missionTitle.startsWith("Do you have IP")) {
-                    missions.put(missionTitle, new Date());
-                } else {//unknown mission
-                    missions.put(missionTitle, new Date());
-                    Log.w("MyTag", "unknown mission: " + missionTitle);
                 }
+                waitAndClick("btn_done");
+            } else if (missionTitle.startsWith("Do you have IP")) {
+                missions.put(missionTitle, new Date());
+            } else {//unknown mission
+                missions.put(missionTitle, new Date());
+                Log.w("MyTag", "unknown mission: " + missionTitle);
             }
         }
         return 10 - countMyMissions;
