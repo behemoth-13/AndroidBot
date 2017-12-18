@@ -60,19 +60,27 @@ public class ChangeTextBehaviorTest {
     private SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss");
     private int myRep = 0;
 
-//закомментированы 66,
-//добавлено 438         collectMissions();
     @Test
     public void runTest() throws UiObjectNotFoundException {
-        //proxyMethod();
-        runBot();
+        proxyMethod();
     }
 
     private void proxyMethod() {
         try {
             runBot();
         } catch (Exception e) {
-            proxyMethod();
+            writeClientsToDisc();
+            writeMissionsToDisc();
+            if(mDevice.hasObject(By.res(PACKAGE, "whois"))) {
+                if (mDevice.findObject(By.res(PACKAGE, "whois")).getText()
+                        .contains("Не удалось просканировать сеть")) {
+                    waitAndClick("whois_done");
+                    waitAndClick("bounce_delete");
+                    Log.w("MyTag", "получилось");
+                    proxyMethod();
+                }
+            }
+            //proxyMethod();
         }
     }
 
@@ -103,7 +111,11 @@ public class ChangeTextBehaviorTest {
 
         initSavedIP();
         initSavedMissions();
-        waitAndClick("img_connection");                            //диспетчер подключений
+
+        waitAndClick("img_missions");//задания
+        collectStartedMissions();
+
+        waitAndClick("img_connection");                      //диспетчер подключений
         myRep = Integer.parseInt(waitAndGetText("stat_rep"));//берем репутацию
         waitAndClick("connection_firewall");                //журнал подключений
         while(waitAndIsExist("btn_close2","log_item_ip")){  //закрыть, ip в журнале подключений
@@ -352,6 +364,7 @@ public class ChangeTextBehaviorTest {
         Matcher m3 = p3.matcher(string);
         m3.find();
         if (string.contains("Invalid IP")) {
+            Log.w("MyTag" , "Invalid IP " + client.getIp());
             return false;
         }
         int rep = Integer.parseInt(string.substring(m3.start() + 11, m3.end() - 12));
@@ -414,12 +427,6 @@ public class ChangeTextBehaviorTest {
         Client nextClient = clients.poll();
         Date lastCrack = nextClient.getLastCrack();
         int countTries = 0;
-        if (IS_LAUNCHED) {
-            collectMissions();
-            writeClientsToDisc();
-            writeMissionsToDisc();
-            IS_LAUNCHED = false;
-        }
 
         while (lastCrack != null) {
             Log.w("MyTag", "NextClient try: " + countTries);
@@ -549,7 +556,6 @@ public class ChangeTextBehaviorTest {
    private boolean startMission(UiObject2 title, String missionTitle) {
        title.click();
        waitObj("mission_det_description");//обработка всплывающего окна
-       //mDevice.swipe(1000, 800, 1000, 600, 20);
        waitObj("mission_det_target_rep");
        String strRep = mDevice.findObject(By.res(PACKAGE, "mission_det_target_rep")).getText();
        strRep = strRep.substring(0, strRep.indexOf(' '));
