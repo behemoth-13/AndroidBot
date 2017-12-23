@@ -510,7 +510,7 @@ public class ChangeTextBehaviorTest {
     /** собирает инфу о взятых заданиях */
     private int collectStartedMissions() {
         waitAndClick("btn_mission_my");//кнопка Активные задания
-        waitObj("mission_i__title");
+        waitObj("mission_i__title");//не находит если нет заданий TODO цикл ожидания заглавия задания или пустого списка задания
         int countMyMissions = mDevice.findObject(By.res(PACKAGE, "lv_mission")).getChildCount();
         for (int i = 0; i < countMyMissions; i++) {
             waitObj("mission_i__title");
@@ -591,8 +591,6 @@ public class ChangeTextBehaviorTest {
            return false;
        }
    }
-
-
 
     private int getMyMoney() {
         String hc = mDevice.findObject(By.res(PACKAGE, "stat_cash")).getText();
