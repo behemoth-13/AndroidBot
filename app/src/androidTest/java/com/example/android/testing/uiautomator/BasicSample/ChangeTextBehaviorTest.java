@@ -510,7 +510,13 @@ public class ChangeTextBehaviorTest {
     /** собирает инфу о взятых заданиях */
     private int collectStartedMissions() {
         waitAndClick("btn_mission_my");//кнопка Активные задания
-        waitObj("mission_i__title");//не находит если нет заданий TODO цикл ожидания заглавия задания или пустого списка задания
+        while (!mDevice.hasObject(By.res(PACKAGE, "mission_i__title")) &&
+                !mDevice.hasObject(By.res(PACKAGE, "mission_no_missions"))) {
+            sleep(100);
+        }
+        if (mDevice.hasObject(By.res(PACKAGE, "mission_no_missions"))) {//если заданий нет
+            return 10;
+        }
         int countMyMissions = mDevice.findObject(By.res(PACKAGE, "lv_mission")).getChildCount();
         for (int i = 0; i < countMyMissions; i++) {
             waitObj("mission_i__title");
